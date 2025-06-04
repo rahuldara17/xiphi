@@ -9,54 +9,43 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class TranscriptService:
-    def __init__(self, db: Neo4jConnection):
+    def __init__(self, db: Neo4jConnection, google_api_key: Optional[str] = None):
         self.db = db
-        self.processor = TranscriptProcessor()
+        self.processor = TranscriptProcessor(google_api_key=google_api_key)
 
     def process_transcript(self, transcript: str) -> Dict[str, Any]:
-        """Process a transcript and extract structured information"""
+        """Process a transcript and extract structured information."""
         if not transcript or not transcript.strip():
             logger.warning("Empty transcript received for processing.")
             return {}
 
-        # Extract basic data (skills, expertise, interests, etc.)
         extracted_data = self.processor.process_transcript(transcript)
 
-        # Use spaCy to extract named entities and keywords
-        doc = self.processor.nlp(transcript)
+        # Extract fields
+        skills = extracted_data.get("skills", [])
+        interests = extracted_data.get("interests", [])
+        job_roles = extracted_data.get("job_roles", [])
+        company = extracted_data.get("company")
+        location = extracted_data.get("location")
+        education = extracted_data.get("education", [])
 
-        # Extract career goals (e.g., entities labeled as 'GOAL' or 'OBJECTIVE')
-        career_goals = [ent.text for ent in doc.ents if ent.label_ in ['GOAL', 'OBJECTIVE']]
-        if not career_goals:
-            career_goals = ["goal1", "goal2"]  # Fallback if no goals found
+        # Optional additional enrichment
+        career_goals = extracted_data.get("careerGoals") or ["goal1", "goal2"]
+        topics = extracted_data.get("topics") or ["topic1", "topic2"]
 
-        # Extract business objectives (e.g., entities labeled as 'ORG' or 'PROJECT')
-        business_objectives = [ent.text for ent in doc.ents if ent.label_ in ['ORG', 'PROJECT']]
-        if not business_objectives:
-            business_objectives = ["objective1", "objective2"]  # Fallback if no objectives found
-
-        # Extract topics (e.g., entities labeled as 'TOPIC' or 'SUBJECT')
-        topics = [ent.text for ent in doc.ents if ent.label_ in ['TOPIC', 'SUBJECT']]
-        if not topics:
-            topics = ["topic1", "topic2"]  # Fallback if no topics found
-
-        # Update extracted_data with real NLP-extracted fields
-        extracted_data.update({
+        enriched_data = {
+            **extracted_data,
+            "skills": skills,  # Use skills as-is
+            "interests": interests,
+            "job_roles": job_roles,
             "careerGoals": career_goals,
-            "businessObjectives": business_objectives,
+            "topics": topics,
             "voiceAgentInteractions": [
                 {
                     "interactionID": str(uuid.uuid4()),
                     "summary": "Sample interaction summary",
                     "extractedTopics": topics,
                     "noAttempts": 1
-                }
-            ],
-            "recommendationFeedback": [
-                {
-                    "item": "item1",
-                    "feedback": "like",
-                    "timestamp": datetime.utcnow().isoformat()
                 }
             ],
             "networkingConnections": [
@@ -69,10 +58,10 @@ class TranscriptService:
             ],
             "growthMilestones": {
                 "rolesAchieved": ["role1", "role2"],
-                "skillsAcquired": ["skill1", "skill2"],
+                "skillsAcquired": skills[:2] if skills else ["skill1", "skill2"],
                 "certificationsCompleted": ["cert1", "cert2"]
             },
-            "education": [
+            "education": education if education else [
                 {
                     "institution": "IIT Bombay",
                     "degree": "B.Tech in Civil Engineering",
@@ -80,18 +69,17 @@ class TranscriptService:
                     "end_year": 2025
                 }
             ]
-        })
+        }
 
-        return extracted_data
+        return enriched_data
 
     async def update_person_from_transcript(
         self,
         person_id: str,
         transcript_data: Dict[str, Any]
     ) -> Optional[str]:
-        """Update a person's information in the graph based on transcript data"""
+        """Update a person's information in the graph based on transcript data."""
         try:
-            # Build update model safely
             update_data = PersonUpdate(
                 skills=transcript_data.get("skills") or [],
                 expertise=transcript_data.get("expertise") or [],
@@ -99,18 +87,21 @@ class TranscriptService:
                 company=transcript_data.get("company"),
                 location=transcript_data.get("location")
             )
+            job_roles = transcript_data.get("job_roles") or []
 
-            logger.info(f"Updating person {person_id} with:")
-            logger.info(f"  Skills: {update_data.skills}")
-            logger.info(f"  Expertise: {update_data.expertise}")
-            logger.info(f"  Interests: {update_data.interests}")
-            logger.info(f"  Company: {update_data.company}")
-            logger.info(f"  Location: {update_data.location}")
+            logger.info(f"Updating person {person_id} with data:")
+            logger.info(f"Skills: {update_data.skills}")
+            logger.info(f"Expertise: {update_data.expertise}")
+            logger.info(f"Interests: {update_data.interests}")
+            logger.info(f"Company: {update_data.company}")
+            logger.info(f"Location: {update_data.location}")
+            logger.info(f"Job Roles: {job_roles}")
 
             query = """
             MATCH (p:Person {id: $person_id})
             SET p += $properties
             WITH p
+            // Update Skills
             OPTIONAL MATCH (p)-[r:HAS_SKILL]->(s:Skill)
             WHERE NOT s.name IN $skills
             DELETE r
@@ -119,14 +110,7 @@ class TranscriptService:
             MERGE (s:Skill {name: skill})
             MERGE (p)-[:HAS_SKILL]->(s)
             WITH p
-            OPTIONAL MATCH (p)-[r:HAS_EXPERTISE]->(e:Expertise)
-            WHERE NOT e.name IN $expertise
-            DELETE r
-            WITH p
-            UNWIND $expertise AS exp
-            MERGE (e:Expertise {name: exp})
-            MERGE (p)-[:HAS_EXPERTISE]->(e)
-            WITH p
+            // Update Interests
             OPTIONAL MATCH (p)-[r:INTERESTED_IN]->(i:Interest)
             WHERE NOT i.name IN $interests
             DELETE r
@@ -134,7 +118,28 @@ class TranscriptService:
             UNWIND $interests AS interest
             MERGE (i:Interest {name: interest})
             MERGE (p)-[:INTERESTED_IN]->(i)
-            RETURN p.id AS person_id
+            WITH p
+            // Update Job Roles
+            OPTIONAL MATCH (p)-[r:HAS_JOB_ROLE]->(jr:JobRole)
+            WHERE NOT jr.name IN $job_roles
+            DELETE r
+            WITH p
+            UNWIND $job_roles AS job_role
+            MERGE (jr:JobRole {name: job_role})
+            MERGE (p)-[:HAS_JOB_ROLE]->(jr)
+            WITH p
+            // Update Company
+            OPTIONAL MATCH (p)-[r:WORKS_AT]->(c:Company)
+            WHERE c.name <> $company OR $company IS NULL
+            DELETE r
+            WITH p
+            CALL apoc.do.when(
+                $company IS NOT NULL,
+                'MERGE (c:Company {name: $company}) MERGE (p)-[:WORKS_AT]->(c) RETURN p',
+                'RETURN p',
+                {p: p, company: $company}
+            ) YIELD value
+            RETURN value.p.id AS person_id
             """
 
             with self.db.get_session() as session:
@@ -147,8 +152,9 @@ class TranscriptService:
                             "location": update_data.location
                         },
                         "skills": update_data.skills,
-                        "expertise": update_data.expertise,
-                        "interests": update_data.interests
+                        "interests": update_data.interests,
+                        "job_roles": job_roles,
+                        "company": update_data.company
                     }
                 )
 

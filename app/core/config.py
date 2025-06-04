@@ -1,45 +1,33 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
 from dotenv import load_dotenv
 import logging
 
+load_dotenv()  # Load .env file if present
+
 logger = logging.getLogger(__name__)
 
-# Load environment variables from .env
-load_dotenv()
-
 class Settings(BaseSettings):
-    # API Settings
-    API_HOST: str = "0.0.0.0"
-    API_PORT: int = 8000
-    DEBUG: bool = True
-    SECRET_KEY: str = "your-secret-key-here"
+    # PostgreSQL Settings
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_DB: str
 
     # Neo4j Settings
-    NEO4J_URI: str = "bolt://localhost:7687"  # Use 7687, not 7689
+    NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USER: str = "neo4j"
-    NEO4J_PASSWORD: str = "password"
-
-    # ElevenLabs API
-    ELEVENLABS_API_KEY: Optional[str] = None
-
-    # LinkedIn API
-    LINKEDIN_CLIENT_ID: Optional[str] = None
-    LINKEDIN_CLIENT_SECRET: Optional[str] = None
-
-    # Vector DB
-    VECTOR_DB_HOST: str = "localhost"
-    VECTOR_DB_PORT: int = 6333
-    VECTOR_DB_NAME: str = "recommendations"
+    NEO4J_PASSWORD: str
 
     class Config:
-        env_file = ".env"  # ✅ Automatically load .env file
+        env_file = ".env"
         case_sensitive = True
 
 settings = Settings()
 
-# Log the settings (without password)
-logger.info("Loaded settings:")
-logger.info(f"NEO4J_URI: {settings.NEO4J_URI}")
-logger.info(f"NEO4J_USER: {settings.NEO4J_USER}")
-logger.info("NEO4J_PASSWORD: [REDACTED]")
+logger.info("Loaded database settings:")
+logger.info(f"Postgres Host: {settings.POSTGRES_HOST}")
+logger.info(f"Postgres DB: {settings.POSTGRES_DB}")
+logger.info(f"Neo4j URI: {settings.NEO4J_URI}")
+logger.info(f"Neo4j User: {settings.NEO4J_USER}")
+logger.info("Neo4j Password: [REDACTED]")

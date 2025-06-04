@@ -8,10 +8,10 @@ router = APIRouter()
 transcript_service = TranscriptService(neo4j)
 
 class TranscriptRequest(BaseModel):
-    """Request model for transcript processing"""
-    transcript: str
-    person_id: Optional[str] = None  # Optional: if provided, will update person in graph
-    save_to_graph: bool = False  # Whether to save the extracted data to the graph
+    conversation_text: str  # The full transcript string including speaker tags
+    person_id: Optional[str] = None
+    save_to_graph: bool = False
+
 
 class TranscriptResponse(BaseModel):
     """Response model for processed transcript data"""
@@ -29,7 +29,7 @@ async def process_transcript(request: TranscriptRequest):
     """
     try:
         # Process the transcript
-        extracted_data = transcript_service.process_transcript(request.transcript)
+        extracted_data = transcript_service.process_transcript(request.conversation_text)
         
         # If save_to_graph is True and person_id is provided, update the person in the graph
         person_id = None

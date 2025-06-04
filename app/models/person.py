@@ -1,90 +1,65 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from enum import Enum
+# schemas.py
+from pydantic import BaseModel, EmailStr, HttpUrl, conlist
+from typing import Optional, List
 from datetime import datetime
-import uuid
+from uuid import UUID
+from enum import Enum
 
-class UserRole(str, Enum):
-    ATTENDEE = "attendee"
-    PRESENTER = "presenter"
-    EXHIBITOR = "exhibitor"
-    ORGANIZER = "organizer"
+class RegistrationCategory(str, Enum):
+    attendee = "attendee"
+    speaker = "speaker"
+    organizer = "organizer"
 
-class PersonBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
-    role: UserRole
-    email: str = Field(..., pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-    bio: Optional[str] = Field(None, max_length=1000)
-    location: Optional[str] = None
-    company: Optional[str] = None
-    job_title: Optional[str] = None
-class Education(BaseModel):
-    degree: str
-    institution: str
-    start_year: int
-    end_year: int
+class UserCreate(BaseModel):
+    email: EmailStr
+    password_hash: str
+    first_name: str
+    last_name: str
+    avatar_url: Optional[HttpUrl] = None
+    biography: Optional[str] = None
+    phone: Optional[str] = None
+    registration_category: RegistrationCategory = RegistrationCategory.attendee
 
-class PersonCreate(PersonBase):
-    skills: List[str] = Field(default_factory=list)
-    expertise: List[str] = Field(default_factory=list)
-    interests: List[str] = Field(default_factory=list)
-    education: Optional[List[Education]] = Field(default_factory=list)
-    linkedin_url: Optional[str] = None
-
-class PersonUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    bio: Optional[str] = Field(None, max_length=1000)
-    location: Optional[str] = None
-    company: Optional[str] = None
-    job_title: Optional[str] = None
-    skills: Optional[List[str]] = None
-    expertise: Optional[List[str]] = None
-    interests: Optional[List[str]] = None
-    education: List[Education] = Field(default_factory=list)
-
-
-class PersonInDB(PersonBase):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    skills: List[str] = Field(default_factory=list)
-    expertise: List[str] = Field(default_factory=list)
-    interests: List[str] = Field(default_factory=list)
-    education: List[Education] = Field(default_factory=list)
-
-    linkedin_url: Optional[str] = None
+class UserRead(BaseModel):
+    user_id: UUID
+    email: EmailStr
+    first_name: str
+    last_name: str
+    registration_category: RegistrationCategory
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
-class UserProfile(BaseModel):
-    userID: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    fullName: str
-    location: Optional[str] = None
-    ageGroup: Optional[str] = None
-    languagePreferences: List[str] = Field(default_factory=list)
-    communicationPreference: Optional[str] = None
-    professionalDetails: Dict[str, Any] = Field(default_factory=dict)
-    skills: List[Dict[str, str]] = Field(default_factory=list)
-    goalsAndIntent: Dict[str, Any] = Field(default_factory=dict)
-    engagements: List[Dict[str, Any]] = Field(default_factory=list)
-    voiceAgentInteractions: List[Dict[str, Any]] = Field(default_factory=list)
-    recommendationFeedback: List[Dict[str, Any]] = Field(default_factory=list)
-    networkingConnections: List[Dict[str, Any]] = Field(default_factory=list)
-    growthMilestones: Dict[str, List[str]] = Field(default_factory=dict)
+
+class SingleUserSkill(BaseModel):
+    skill_name : str
+    assigned_at: Optional[datetime] = None
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+
+class SingleUserInterest(BaseModel):
+    interest_name : str
+    assigned_at: Optional[datetime] = None
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+
+class SingleUserJobRole(BaseModel):
+    job_role : str
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+
+class SingleUserCompany(BaseModel):
+    company_name: str
+    joined_at: Optional[datetime] = None
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+
+class UserUpdateSchema(BaseModel):
+    user_id: UUID
+    user_skills: Optional[List[SingleUserSkill]] = None
+    user_job_roles: Optional[List[SingleUserJobRole]] = None
+    user_interests: Optional[List[SingleUserInterest]] = None
+    user_company: Optional[SingleUserCompany] = None
 
     class Config:
-        from_attributes = True
-
-# Replace PersonResponse with UserProfile
-PersonResponse = UserProfile
-
-class RecommendationResponse(BaseModel):
-    """Response model for recommendations"""
-    person_id: str
-    name: str
-    role: UserRole
-    shared_skills: List[str]
-    shared_expertise: List[str]
-    shared_interests: List[str]
-    total_score: float 
+        orm_mode = True

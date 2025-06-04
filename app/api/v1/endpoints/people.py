@@ -1,146 +1,111 @@
-from fastapi import APIRouter, HTTPException
-from typing import List, Optional
-from app.models.person import PersonCreate, PersonUpdate, UserProfile, RecommendationResponse
-from app.db.neo4j import neo4j
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from postgres.models import User, UserSkill, UserInterest, UserJobRole, UserCompany
+from app.models.person import UserCreate, UserRead, UserUpdateSchema
+from app.db.database import get_db
+from app.db.neo4j import create_user_node, create_or_update_user_skill_neo4j
+from app.services.process import find_closest_skill_id
+from datetime import datetime
 import uuid
-
+import asyncio
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
-@router.post("/", response_model=UserProfile)
-async def create_person(person: PersonCreate):
-    """Create a new person in the knowledge graph"""
-    try:
-        # Convert PersonCreate to UserProfile
-        user_profile = UserProfile(
-            userID=str(uuid.uuid4()),
-            fullName=person.name,
-            location=person.location,
-            ageGroup=None,  # Default value
-            languagePreferences=[],  # Default value
-            communicationPreference=None,  # Default value
-            professionalDetails={
-                "currentRole": person.job_title,
-                "company": person.company,
-                "yearsOfExperience": None,  # Default value
-                "industry": None,  # Default value
-                "functionalArea": None,  # Default value
-                "careerStage": None,  # Default value
-                "education": person.education,
-                "certifications": [],  # Default value
-                "role": person.role  # Add role to professionalDetails
-            },
-            skills=[{
-                "skillName": skill,
-                "category": "General",
-                "proficiency": "Intermediate"
-            } for skill in person.skills],
-            goalsAndIntent={
-                "careerGoals": person.interests,
-                "businessObjectives": [],
-                "learningInterests": person.interests,
-                "desiredIndustries": [],
-                "openToMentor": False,
-                "seekingMentorship": False
-            },
-            engagements=[],  # Default value
-            voiceAgentInteractions=[],  # Default value
-            recommendationFeedback=[],  # Default value
-            networkingConnections=[],  # Default value
-            growthMilestones={
-                "rolesAchieved": [],
-                "skillsAcquired": person.skills,
-                "certificationsCompleted": []
-            }
-        )
-        
-        # Save the full UserProfile to Neo4j
-        person_id = await neo4j.create_person({**user_profile.model_dump(), "role": person.role})
-        return {**user_profile.model_dump(), "id": person_id}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+from neo4j import GraphDatabase
+from app.core.config import settings
 
-@router.get("/{person_id}", response_model=UserProfile)
-async def get_person_route(person_id: str):
-    person = await neo4j.get_person(person_id)
-    if person is None:
-        raise HTTPException(status_code=404, detail="Person not found")
-    return person
+neo4j_driver = GraphDatabase.driver(
+    settings.NEO4J_URI,
+    auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
+)
 
-@router.put("/{person_id}", response_model=UserProfile)
-async def update_person(person_id: str, person: PersonUpdate):
-    try:
-        # Get existing person data
-        existing_person = await neo4j.get_person(person_id)
-        if not existing_person:
-            raise HTTPException(status_code=404, detail="Person not found")
+@router.post("/", response_model=UserRead)
+async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).filter(User.email == user.email))
+    existing_user = result.scalars().first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
 
-        # Convert PersonUpdate to UserProfile
-        user_profile = UserProfile(
-            userID=person_id,
-            fullName=person.name or existing_person.get("name", ""),
-            location=person.location or existing_person.get("location"),
-            ageGroup=existing_person.get("ageGroup"),
-            languagePreferences=existing_person.get("languagePreferences", []),
-            communicationPreference=existing_person.get("communicationPreference"),
-            professionalDetails={
-                "currentRole": person.job_title or existing_person.get("job_title"),
-                "company": person.company or existing_person.get("company"),
-                "yearsOfExperience": existing_person.get("yearsOfExperience"),
-                "industry": existing_person.get("industry"),
-                "functionalArea": existing_person.get("functionalArea"),
-                "careerStage": existing_person.get("careerStage"),
-                "education": [edu.model_dump() for edu in person.education] if person.education else existing_person.get("education", []),
-                "certifications": existing_person.get("certifications", [])
-            },
-            skills=[{
-                "skillName": skill,
-                "category": "General",
-                "proficiency": "Intermediate"
-            } for skill in (person.skills or existing_person.get("skills", []))],
-            goalsAndIntent={
-                "careerGoals": person.interests or existing_person.get("interests", []),
-                "businessObjectives": existing_person.get("businessObjectives", []),
-                "learningInterests": person.interests or existing_person.get("interests", []),
-                "desiredIndustries": existing_person.get("desiredIndustries", []),
-                "openToMentor": existing_person.get("openToMentor", False),
-                "seekingMentorship": existing_person.get("seekingMentorship", False)
-            },
-            engagements=existing_person.get("engagements", []),
-            voiceAgentInteractions=existing_person.get("voiceAgentInteractions", []),
-            recommendationFeedback=existing_person.get("recommendationFeedback", []),
-            networkingConnections=existing_person.get("networkingConnections", []),
-            growthMilestones={
-                "rolesAchieved": existing_person.get("rolesAchieved", []),
-                "skillsAcquired": person.skills or existing_person.get("skills", []),
-                "certificationsCompleted": existing_person.get("certificationsCompleted", [])
-            }
-        )
+    new_user = User(
+        user_id=uuid.uuid4(),
+        email=user.email,
+        password_hash=user.password_hash,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        avatar_url=user.avatar_url,
+        biography=user.biography,
+        phone=user.phone,
+        registration_category=user.registration_category
+    )
 
-        # Update the full UserProfile in Neo4j
-        updated_id = await neo4j.update_person(person_id, user_profile.model_dump())
-        if not updated_id:
-            raise HTTPException(status_code=404, detail="Person not found")
-        updated_person = await neo4j.get_person(updated_id)
-        return updated_person
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
 
-@router.delete("/{person_id}")
-async def delete_person(person_id: str):
-    try:
-        success = await neo4j.delete_person(person_id)
-        if not success:
-            raise HTTPException(status_code=404, detail="Person not found or already deleted")
-        return {"message": "Person deleted successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Async fire-and-forget Neo4j node creation
+    asyncio.create_task(create_user_node(
+        user_id=str(new_user.user_id),
+        email=new_user.email,
+        first_name=new_user.first_name,
+        last_name=new_user.last_name
+    ))
 
-@router.get("/{person_id}/recommendations", response_model=List[RecommendationResponse])
-async def get_recommendations(person_id: str, limit: int = 10):
-    """Get recommendations for a person based on shared attributes"""
-    try:
-        recommendations = await neo4j.get_recommendations(person_id, limit)
-        return recommendations
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=str(e)) 
+    return new_user
+
+@router.post("/update")
+
+async def update_user_data(payload: UserUpdateSchema, db: AsyncSession = Depends(get_db)):
+    user_id = payload.user_id
+
+    
+        # --- Update Skills ---
+    if payload.user_skills:
+        for skill in payload.user_skills:
+            id = await find_closest_skill_id(db, skill.skill_name)
+
+            await db.merge(UserSkill(
+                user_id=user_id,
+                skill_interest_id=id["skill_interest_id"],
+                assigned_at=skill.assigned_at or datetime.utcnow(),
+                valid_from=skill.valid_from or datetime.utcnow(),
+                valid_to=skill.valid_to or datetime.max
+            ))
+            asyncio.create_task(create_or_update_user_skill_neo4j(str(user_id), id["name"]))
+            
+
+    # --- Update Interests ---
+    if payload.user_interests:
+        for interest in payload.user_interests:
+            await db.merge(UserInterest(
+                user_id=user_id,
+                skill_interest_id=interest.skill_interest_id,
+                assigned_at=interest.assigned_at or datetime.utcnow(),
+                valid_from=interest.valid_from or datetime.utcnow(),
+                valid_to=interest.valid_to or datetime.max
+            ))
+
+    # --- Update Job Roles ---
+    if payload.user_job_roles:
+        for role in payload.user_job_roles:
+            await db.merge(UserJobRole(
+                user_id=user_id,
+                job_role_id=role.job_role_id,
+                valid_from=role.valid_from or datetime.utcnow(),
+                valid_to=role.valid_to or datetime.max
+            ))
+
+    # --- Update Company ---
+    if payload.user_company:
+        company = payload.user_company
+        await db.merge(UserCompany(
+            user_id=user_id,
+            company_id=company.company_id,
+            joined_at=company.joined_at or datetime.utcnow(),
+            valid_from=company.valid_from or datetime.utcnow(),
+            valid_to=company.valid_to or datetime.max
+        ))
+
+    await db.commit()
+    return {"msg": "User update successful"}
