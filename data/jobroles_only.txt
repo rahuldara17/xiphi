@@ -162,7 +162,6 @@ Green Technology Consultant
 Renewable Energy Engineer
 Environmental Data Scientist
 Sustainability Manager
-Chief Sustainability Officer
 Environmental Engineer
 Climate Adaptation Specialist
 Sustainable Finance Analyst
@@ -235,7 +234,6 @@ Consciousness Programmer
 Synthetic Media Creator
 Virtual Reality Therapist
 Algorithmic Bias Auditor
-Customer Success Engineer
 Digital Identity Manager
 FinTech Engineer
 Health Tech Specialist
@@ -260,7 +258,6 @@ Blockchain Product Manager
 Web3 UX Designer
 Metaverse Event Planner
 Virtual Real Estate Agent
-Chief Data Officer
 Data Product Manager
 Data Storyteller
 Data Ethics Officer
@@ -280,7 +277,6 @@ Health Tech Product Manager
 Medical Device Software Engineer
 FinTech Product Manager
 Digital Banking Specialist
-Cryptocurrency Analyst
 DeFi Protocol Developer
 RegTech Specialist
 InsurTech Product Manager

@@ -7,11 +7,11 @@ from sqlalchemy.orm import sessionmaker
 from sentence_transformers import SentenceTransformer
 
 from .models import Base, JobRole, SkillInterest, Company # adjust import path if needed
-
+from app.core.config import settings
 # Database configuration
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql://postgres:sam12345@localhost:5432/new4"
+    f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:5432/{settings.POSTGRES_DB}"
 )
 
 # Sentence Transformer model
@@ -81,11 +81,11 @@ def populate_table_from_file(table_class, file_path):
 
 if __name__ == "__main__":
     # Populate JobRole
-    jobroles_path = os.path.join("data", "jobroles_only.txt")
-    if os.path.isfile(jobroles_path):
-        populate_table_from_file(JobRole, jobroles_path)
-    else:
-        print(f"File not found: {jobroles_path}")
+    # jobroles_path = os.path.join("data", "jobroles_only.txt")
+    # if os.path.isfile(jobroles_path):
+    #     populate_table_from_file(JobRole, jobroles_path)
+    # else:
+    #     print(f"File not found: {jobroles_path}")
 
     # Populate SkillInterest
     # skills_path = os.path.join("data", "skills_only.txt")
@@ -95,8 +95,8 @@ if __name__ == "__main__":
     #     print(f"File not found: {skills_path}")
 
     # If you want to populate Company later, uncomment:
-    # companies_path = os.path.join("data", "companies_only.txt")
-    # if os.path.isfile(companies_path):
-    #     populate_table_from_file(Company, companies_path)
-    # else:
-    #     print(f"File not found: {companies_path}")
+    companies_path = os.path.join("data", "companies_only.txt")
+    if os.path.isfile(companies_path):
+        populate_table_from_file(Company, companies_path)
+    else:
+        print(f"File not found: {companies_path}")

@@ -1,9 +1,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from models import Base  # your models.py where Base is declared
-
+from app.core.config import settings 
 # Example: PostgreSQL connection URL with pgvector support
-DATABASE_URL = "postgresql://postgres:sam12345@localhost:5432/new4"
+DATABASE_URL = f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:5432/{settings.POSTGRES_DB}"
 
 # Create engine with connection pooling, etc.
 engine = create_engine(

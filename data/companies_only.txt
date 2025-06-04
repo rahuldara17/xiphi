@@ -1,4 +1,3 @@
-Google/Alphabet
 Microsoft
 Amazon
 Apple
@@ -73,7 +72,6 @@ Coinbase
 Kraken
 Ripple
 Chainalysis
-Tesla
 Toyota
 Ford
 General Motors
@@ -123,7 +121,6 @@ Duke Energy
 Dominion Energy
 Ørsted
 Vestas Wind Systems
-Amazon
 Walmart
 Costco
 Home Depot
@@ -134,7 +131,6 @@ TJX Companies
 Macy's
 Dollar General
 eBay
-Shopify
 JD.com
 Alibaba
 PDD Holdings
@@ -148,18 +144,6 @@ Spotify
 YouTube
 Universal Music Group
 Sony
-OpenAI
-Anthropic
-Cohere
-Scale AI
-Hugging Face
-Midjourney
-Stability AI
-Character.AI
-Perplexity AI
-Runway ML
-DeepL
-xAI
 Writer
 Jasper
 Copy.ai
@@ -173,9 +157,6 @@ Harvey
 Glean
 Adept
 Inflection AI
-Stripe
-Plaid
-Robinhood
 Chime
 Revolut
 Klarna
@@ -183,21 +164,11 @@ Nubank
 SoFi
 Marqeta
 Circle
-Ripple
-Chainalysis
-Coinbase
-Kraken
-Figma
-Canva
 Affirm
 Oscar Health
-Ro
 Calm
-Databricks
-Snowflake
 GitLab
 HashiCorp
-MongoDB
 Confluent
 Elastic
 JFrog
@@ -205,51 +176,22 @@ Lacework
 Snyk
 SentinelOne
 Tanium
-CrowdStrike
 Okta
 Zscaler
-Moderna
-Ginkgo Bioworks
-10x Genomics
-CRISPR Therapeutics
 Tempus
-BioNTech
-Ro
-Oscar Health
-Calm
 Headspace
-Veracyte
-Illumina
 Pacific Biosciences
 Twist Bioscience
 Zymergen
 Uber
 DoorDash
 Instacart
-Rivian
-Lucid Motors
 ByteDance/TikTok
 SpaceX
-Epic Games
 Roblox
 Discord
-ByteDance/TikTok
-Discord
-Epic Games
-Roblox
-Canva
-Figma
-Notion
-Zoom
 Slack
-Unity Technologies
-Spotify
 Airbnb
-Uber
-DoorDash
-Instacart
-Perplexity AI
-Runway ML
 Deepgram
 Pinecone
 Cursor/Anysphere
@@ -262,28 +204,13 @@ Neon
 Weaviate
 LangChain
 Chroma
-Replicate
 PhotoRoom
 Loom
 Otter.ai
 Beehiiv
 FlutterFlow
-Midjourney
-Character.AI
-ElevenLabs
-Pika Labs
-Luma AI
-Harvey
-Glean
-Adept
-Writer
-Jasper
 Cloudflare
-Vercel
-Supabase
 DigitalOcean
-PlanetScale
-Neon
 Railway
 Fly.io
 Render
@@ -299,13 +226,9 @@ PostHog
 Segment
 Mixpanel
 Amplitude
-Datadog
 New Relic
 Sentry
 LogRocket
-Cursor/Anysphere
-Replit
-Linear
 GitHub Copilot
 Codeium
 Tabnine
@@ -343,13 +266,10 @@ Blur
 Foundation
 SuperRare
 Async Art
-Ginkgo Bioworks
-CRISPR Therapeutics
 Beam Therapeutics
 Prime Medicine
 Mammoth Biosciences
 Inscripta
-Zymergen
 Modern Meadow
 Perfect Day
 Memphis Meats
@@ -373,9 +293,6 @@ Energy Vault
 Gravity Power
 Heliogen
 Commonwealth Fusion Systems
-Epic Games
-Roblox
-Unity Technologies
 Niantic
 Supercell
 King Digital Entertainment
@@ -413,7 +330,6 @@ Cruise
 Aurora
 Argo AI
 Nuro
-SpaceX
 Blue Origin
 Virgin Galactic
 Rocket Lab
@@ -433,58 +349,26 @@ HTC Vive
 Valve Index
 Oculus
 Apple Vision Pro
-Niantic
-Unity Technologies
 Epic Games Unreal
 NVIDIA Omniverse
-Roblox
-Ginkgo Bioworks
 Synthetic Genomics
-Twist Bioscience
-Modern Meadow
-Perfect Day
-Memphis Meats
-Apeel Sciences
-Indigo Agriculture
-Plenty
-AeroFarms
 Vertical Future
 Iron Ox
 Bowery Farming
 Gotham Greens
 BrightFarms
-Tesla
-BYD
-Rivian
-Lucid Motors
-NIO
 XPeng
 Li Auto
-QuantumScape
-Solid Power
-Northvolt
 CATL
 Contemporary Amperex
-Form Energy
-Energy Vault
-Heliogen
-Commonwealth Fusion Systems
-Climeworks
-Carbon Engineering
-Twelve
-LanzaTech
 TSMC (Taiwan)
 Samsung (South Korea)
 ASML (Netherlands)
-SAP (Germany)
-Spotify (Sweden)
 Adyen (Netherlands)
 HDFC Bank (India)
 Infosys (India)
 Tata Consultancy Services (India)
 Reliance Industries (India)
-Alibaba (China)
-Tencent (China)
 Baidu (China)
 Meituan (China)
 Xiaomi (China)
