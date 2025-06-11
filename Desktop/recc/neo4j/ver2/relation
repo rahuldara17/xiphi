@@ -1,0 +1,27 @@
+CALL gds.graph.project(
+    'user_interaction_graph',
+    ['User', 'Skill', 'Interest', 'Goal', 'Company', 'Location', 'Event', 'JobRole', 'University'], // All node labels
+    {
+        // High Importance Relationships (Demographics focus)
+        WORKS_AT: {orientation: 'UNDIRECTED', orientation: 'UNDIRECTED', weight: 3.0},
+        WORKED_AT: {orientation: 'UNDIRECTED', weight: 3.0}, // Treat past work as strong
+        LIVES_IN: {orientation: 'UNDIRECTED', weight: 3.0},
+        STUDIED_AT: {orientation: 'UNDIRECTED', weight: 3.0},
+
+        // Medium Importance Relationships (Intent/Context focus)
+        AIMS_FOR: {orientation: 'UNDIRECTED', weight: 2.0},
+        ATTENDED: {orientation: 'UNDIRECTED', weight: 2.0},
+        ATTENDING: {orientation: 'UNDIRECTED', weight: 2.0},
+        PROVIDES_MENTORSHIP_TO: {orientation: 'UNDIRECTED', weight: 2.0},
+        SEEKS_MENTORSHIP_FROM: {orientation: 'UNDIRECTED', weight: 2.0},
+
+        // Standard Importance Relationships (Profile details)
+        HAS_SKILL: {orientation: 'UNDIRECTED', weight: 1.0},
+        HAS_INTEREST: {orientation: 'UNDIRECTED', weight: 1.0},
+        HAS_CURRENT_ROLE: {orientation: 'UNDIRECTED', weight: 1.0},
+        REQUIRES_SKILL: {orientation: 'UNDIRECTED', weight: 1.0},
+        COVERS_TOPIC: {orientation: 'UNDIRECTED', weight: 1.0},
+        DESIRES_INDUSTRY: {orientation: 'UNDIRECTED', weight: 1.0}
+    }
+)
+YIELD graphName, nodeCount, relationshipCount, projectMillis;

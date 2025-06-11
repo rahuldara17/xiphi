@@ -1,0 +1,16 @@
+MATCH (me:User {userID: 'user-Alice'})
+MATCH (me)-[s:SIMILAR_TO]-(other:User)
+WHERE other.userID <> me.userID
+OPTIONAL MATCH (other)-[:HAS_CURRENT_ROLE]->(jobRole:JobRole)
+OPTIONAL MATCH (me)-[:HAS_SKILL]->(commonSkill:Skill)<-[:HAS_SKILL]-(other)
+OPTIONAL MATCH (me)-[:HAS_INTEREST]->(commonInterest:Interest)<-[:HAS_INTEREST]-(other)
+RETURN DISTINCT other.userID AS UserID,
+       other.fullName AS RecommendedUser,
+       jobRole.title AS Role,
+       other.yearsOfExperience AS YearsExperience,
+       s.score AS SimilarityScore,
+       COLLECT(DISTINCT commonSkill.name) AS CommonSkills,
+       COLLECT(DISTINCT commonInterest.name) AS CommonInterests,
+       'People For You' AS Category
+ORDER BY s.score DESC
+LIMIT 5;

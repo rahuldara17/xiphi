@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NΞXXT Connect Recommendations</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f0f2f5; /* Light grey background */
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1000px; /* Slightly wider container */
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); /* More prominent shadow */
+        }
+        h1 {
+            color: #28a745; /* Green header */
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.05);
+        }
+        .input-section {
+            margin-bottom: 40px;
+            text-align: center;
+            background-color: #e9f7ef; /* Light green background */
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #c8e6c9;
+        }
+        .input-section label {
+            font-weight: 600; /* Bolder label */
+            color: #333;
+            margin-right: 15px;
+        }
+        .input-section input[type="text"] {
+            padding: 10px 12px; /* More padding */
+            border: 1px solid #a8d5b1;
+            border-radius: 6px;
+            width: 250px;
+            margin-right: 15px;
+            font-size: 1em;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .input-section button {
+            padding: 10px 25px; /* More padding */
+            background-color: #28a745; /* Darker green */
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+        .input-section button:hover {
+            background-color: #218838;
+            transform: translateY(-1px);
+        }
+        .input-section button:active {
+            transform: translateY(0);
+        }
+
+        .recommendation-category {
+            border: 1px solid #dcdcdc;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 25px;
+            background-color: #ffffff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        .recommendation-category h2 {
+            color: #333;
+            font-size: 1.8em;
+            margin-top: 0;
+            border-bottom: 2px solid #eee; /* Thicker border */
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        /* NEW: Professional card styling */
+        .recommendation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Responsive grid */
+            gap: 20px; /* Space between cards */
+        }
+        .recommendation-item {
+            background-color: #fcfcfc;
+            border: 1px solid #e9e9e9;
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .recommendation-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 8px;
+        }
+        .user-name {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #0056b3; /* Darker blue for name */
+        }
+        .user-role-yoe {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: 500;
+        }
+        .item-score {
+            font-size: 1em;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        .score-value {
+            font-weight: bold;
+            color: #d9534f; /* Red for similarity score */
+        }
+        .item-details p {
+            margin: 5px 0;
+            font-size: 0.95em;
+            color: #444;
+        }
+        .item-details span {
+            font-weight: 600;
+            color: #333;
+        }
+        .tag {
+            display: inline-block;
+            background-color: #e0f2f7; /* Light blue tag */
+            color: #2196f3;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            margin: 3px 5px 3px 0;
+            font-weight: 500;
+        }
+
+        .error {
+            color: #dc3545; /* Red error */
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .no-recs {
+            color: #6c757d; /* Grey text */
+            text-align: center;
+            font-style: italic;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>NΞXXT Connect Recommendations</h1>
+
+        <div class="input-section">
+            <label for="userIdInput">Enter User ID:</label>
+            <input type="text" id="userIdInput" value="user-Alice" placeholder="e.g., user-Alice">
+            <button id="getRecsButton">Get Recommendations</button>
+        </div>
+
+        <div id="loading" style="text-align: center; display: none;">Loading recommendations...</div>
+        <div id="errorMessage" class="error" style="display: none;"></div>
+
+        <div id="demographicsRecs" class="recommendation-category">
+            <h2>People For You (Demographics)</h2>
+            <div class="recommendation-grid content"></div>
+        </div>
+
+        <div id="interestsRecs" class="recommendation-category">
+            <h2>People with Similar Interests</h2>
+            <div class="recommendation-grid content"></div>
+        </div>
+
+        <div id="skillsRecs" class="recommendation-category">
+            <h2>People with Similar Skills</h2>
+            <div class="recommendation-grid content"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('getRecsButton').addEventListener('click', fetchRecommendations);
+
+        async function fetchRecommendations() {
+            const userId = document.getElementById('userIdInput').value.trim();
+            const loadingDiv = document.getElementById('loading');
+            const errorDiv = document.getElementById('errorMessage');
+            const demoContent = document.querySelector('#demographicsRecs .content');
+            const interestsContent = document.querySelector('#interestsRecs .content');
+            const skillsContent = document.querySelector('#skillsRecs .content');
+
+            // Clear previous results
+            demoContent.innerHTML = '';
+            interestsContent.innerHTML = '';
+            skillsContent.innerHTML = '';
+            errorDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+
+            if (!userId) {
+                errorDiv.textContent = 'Please enter a User ID.';
+                errorDiv.style.display = 'block';
+                loadingDiv.style.display = 'none';
+                return;
+            }
+
+            const baseUrl = 'http://127.0.0.1:8000/recommendations/'; // Adjust if your FastAPI runs on a different port/host
+
+            try {
+                // Fetch all three recommendation categories concurrently
+                const [demoRes, interestsRes, skillsRes] = await Promise.all([
+                    fetch(`${baseUrl}demographics/${userId}`),
+                    fetch(`${baseUrl}interests/${userId}`),
+                    fetch(`${baseUrl}skills/${userId}`)
+                ]);
+
+                // Check for HTTP errors
+                if (!demoRes.ok) throw new Error(`Demographics API error: ${demoRes.status} ${demoRes.statusText}`);
+                if (!interestsRes.ok) throw new Error(`Interests API error: ${interestsRes.status} ${interestsRes.statusText}`);
+                if (!skillsRes.ok) throw new Error(`Skills API error: ${skillsRes.status} ${skillsRes.statusText}`);
+
+                const demoData = await demoRes.json();
+                const interestsData = await interestsRes.json();
+                const skillsData = await skillsRes.json();
+
+                displayRecommendations(demoData.recommendations, demoContent, 'demographics');
+                displayRecommendations(interestsData.recommendations, interestsContent, 'interests');
+                displayRecommendations(skillsData.recommendations, skillsContent, 'skills');
+
+            } catch (error) {
+                console.error('Error fetching recommendations:', error);
+                errorDiv.textContent = `Failed to load recommendations: ${error.message}`;
+                errorDiv.style.display = 'block';
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        function displayRecommendations(recommendations, targetElement, type) {
+            if (recommendations.length === 0) {
+                targetElement.innerHTML = '<p class="no-recs">No recommendations found in this category.</p>';
+                return;
+            }
+
+            let html = '';
+            recommendations.forEach(rec => {
+                // Start card item
+                html += `<div class="recommendation-item">`;
+
+                // Header with Name, Role, YOE
+                html += `<div class="item-header">`;
+                html += `<span class="user-name">${rec.RecommendedUser}</span>`;
+                html += `<span class="user-role-yoe">(${rec.Role || 'N/A'}, ${rec.YearsExperience} YOE)</span>`;
+                html += `</div>`;
+
+                // Similarity Score
+                html += `<div class="item-score">Similarity: <span class="score-value">${rec.SimilarityScore ? rec.SimilarityScore.toFixed(4) : 'N/A'}</span></div>`;
+
+                // Common Details Section
+                html += `<div class="item-details">`;
+
+                if (type === 'demographics') {
+                    if (rec.SharedCompanies && rec.SharedCompanies.length > 0) {
+                        html += `<p><span>Companies:</span> ${rec.SharedCompanies.map(c => `<span class="tag">${c}</span>`).join('')}</p>`;
+                    }
+                    if (rec.SharedLocations && rec.SharedLocations.length > 0) {
+                        html += `<p><span>Locations:</span> ${rec.SharedLocations.map(l => `<span class="tag">${l}</span>`).join('')}</p>`;
+                    }
+                    if (rec.SharedUniversities && rec.SharedUniversities.length > 0) {
+                        html += `<p><span>Universities:</span> ${rec.SharedUniversities.map(u => `<span class="tag">${u}</span>`).join('')}</p>`;
+                    }
+                } else if (type === 'interests') {
+                    if (rec.CommonInterests && rec.CommonInterests.length > 0) {
+                        html += `<p><span>Interests:</span> ${rec.CommonInterests.map(i => `<span class="tag">${i}</span>`).join('')}</p>`;
+                    }
+                } else if (type === 'skills') {
+                    if (rec.CommonSkills && rec.CommonSkills.length > 0) {
+                        html += `<p><span>Skills:</span> ${rec.CommonSkills.map(s => `<span class="tag">${s}</span>`).join('')}</p>`;
+                    }
+                }
+                html += `</div>`; // End item-details
+                html += `</div>`; // End recommendation-item
+            });
+            targetElement.innerHTML = html;
+        }
+
+        // Fetch recommendations for the default user on page load
+        document.addEventListener('DOMContentLoaded', fetchRecommendations);
+
+    </script>
+</body>
+</html>

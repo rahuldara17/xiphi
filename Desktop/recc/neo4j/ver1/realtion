@@ -1,0 +1,22 @@
+CALL gds.graph.project(
+    'user_interaction_graph',
+    ['User', 'Skill', 'Interest', 'Goal', 'Company', 'Location', 'Event', 'JobRole', 'University'], // All node labels
+    {
+        HAS_SKILL: {orientation: 'UNDIRECTED'},
+        HAS_INTEREST: {orientation: 'UNDIRECTED'},
+        AIMS_FOR: {orientation: 'UNDIRECTED'},
+        WORKS_AT: {orientation: 'UNDIRECTED'},
+        WORKED_AT: {orientation: 'UNDIRECTED'},
+        LIVES_IN: {orientation: 'UNDIRECTED'},
+        ATTENDED: {orientation: 'UNDIRECTED'},
+        ATTENDING: {orientation: 'UNDIRECTED'},
+        HAS_CURRENT_ROLE: {orientation: 'UNDIRECTED'},
+        REQUIRES_SKILL: {orientation: 'UNDIRECTED'},
+        COVERS_TOPIC: {orientation: 'UNDIRECTED'},
+        DESIRES_INDUSTRY: {orientation: 'UNDIRECTED'},
+        STUDIED_AT: {orientation: 'UNDIRECTED'},
+        PROVIDES_MENTORSHIP_TO: {orientation: 'UNDIRECTED'},
+        SEEKS_MENTORSHIP_FROM: {orientation: 'UNDIRECTED'}
+    }
+)
+YIELD graphName, nodeCount, relationshipCount, projectMillis;

@@ -1,0 +1,519 @@
+// Clear existing data for a fresh start (OPTIONAL, use with caution in production!)
+// MATCH (n) DETACH DELETE n;
+
+// --- 1. Create User Nodes ---
+MERGE (asha:User {
+    userID: 'user-Asha', fullName: 'Asha the Analyst', yearsOfExperience: 3, openToMentor: false, seekingMentorship: true, communicationPreference: 'Virtual Webinars', roles: ['Attendee', 'Learner']
+})
+MERGE (lina:User {
+    userID: 'user-Lina', fullName: 'Lina the Launcher', yearsOfExperience: 8, openToMentor: false, seekingMentorship: false, communicationPreference: 'AI Voice-based Follow-ups', roles: ['Exhibitor', 'Founder', 'Attendee']
+})
+MERGE (james:User {
+    userID: 'user-James', fullName: 'James the Connector', yearsOfExperience: 25, openToMentor: true, seekingMentorship: false, communicationPreference: 'Direct Voice Interactions', roles: ['Presenter', 'Executive', 'Mentor']
+})
+MERGE (priyanka:User {
+    userID: 'user-Priyanka', fullName: 'Priyanka the Coder', yearsOfExperience: 1, openToMentor: false, seekingMentorship: true, communicationPreference: 'Virtual Webinars', roles: ['Attendee', 'Learner']
+})
+MERGE (sanjay:User {
+    userID: 'user-Sanjay', fullName: 'Sanjay the Strategist', yearsOfExperience: 10, openToMentor: true, seekingMentorship: false, communicationPreference: 'In-person Meetings', roles: ['Attendee', 'Expert']
+})
+MERGE (david:User {
+    userID: 'user-David', fullName: 'David the PM', yearsOfExperience: 15, openToMentor: true, seekingMentorship: false, communicationPreference: 'AI Voice-based Follow-ups', roles: ['Presenter', 'Attendee']
+})
+MERGE (aditi:User {
+    userID: 'user-Aditi', fullName: 'Aditi the Recruiter', yearsOfExperience: 7, openToMentor: false, seekingMentorship: false, communicationPreference: 'Email', roles: ['Attendee', 'HR Professional']
+})
+MERGE (rohit:User {
+    userID: 'user-Rohit', fullName: 'Rohit the Researcher', yearsOfExperience: 5, openToMentor: true, seekingMentorship: false, communicationPreference: 'Webinars', roles: ['Presenter', 'Researcher']
+})
+MERGE (neha:User {
+    userID: 'user-Neha', fullName: 'Neha the Growth Lead', yearsOfExperience: 9, openToMentor: false, seekingMentorship: false, communicationPreference: 'AI Voice-based Follow-ups', roles: ['Attendee', 'Marketing Expert']
+})
+MERGE (vikram:User {
+    userID: 'user-Vikram', fullName: 'Vikram the Investor', yearsOfExperience: 20, openToMentor: true, seekingMentorship: false, communicationPreference: 'In-person Meetings', roles: ['Investor', 'Advisor', 'Mentor']
+})
+MERGE (disha:User {
+    userID: 'user-Disha', fullName: 'Disha the Data Strategist', yearsOfExperience: 12, openToMentor: true, seekingMentorship: false, communicationPreference: 'Virtual Meetings', roles: ['Consultant', 'Attendee']
+})
+MERGE (sanjana:User {
+    userID: 'user-Sanjana', fullName: 'Sanjana the Community Builder', yearsOfExperience: 8, openToMentor: false, seekingMentorship: false, communicationPreference: 'AI Voice-based Follow-ups', roles: ['Organizer', 'Community Manager']
+})
+
+// --- 2. Create Common Entities (Skills, Interests, Goals, Companies, Locations, Events, JobRoles, Universities) ---
+// Skills now include 'category' property
+MERGE (python:Skill {name: 'Python', category: 'Technical'})
+MERGE (ml:Skill {name: 'Machine Learning', category: 'Technical'})
+MERGE (ds:Skill {name: 'Data Science', category: 'Technical'})
+MERGE (productMgt:Skill {name: 'Product Management', category: 'Business'})
+MERGE (fundraising:Skill {name: 'Fundraising', category: 'Business'})
+MERGE (leadership:Skill {name: 'Leadership', category: 'Soft'})
+MERGE (aiEthicsSkill:Skill {name: 'AI Ethics', category: 'Soft'})
+MERGE (sql:Skill {name: 'SQL', category: 'Technical'})
+MERGE (js:Skill {name: 'JavaScript', category: 'Technical'})
+MERGE (git:Skill {name: 'Git', category: 'Technical'})
+MERGE (pmSkill:Skill {name: 'Project Management', category: 'Business'})
+MERGE (dataAnalysis:Skill {name: 'Data Analysis', category: 'Technical'})
+MERGE (uxDesign:Skill {name: 'UX Design', category: 'Design'})
+MERGE (aiStrategy:Skill {name: 'AI Strategy', category: 'Business'})
+MERGE (bizDev:Skill {name: 'Business Development', category: 'Business'})
+MERGE (recruitment:Skill {name: 'Recruitment', category: 'HR'})
+MERGE (hrTech:Skill {name: 'HR Tech', category: 'HR'})
+MERGE (nlp:Skill {name: 'NLP', category: 'Technical'})
+MERGE (deepLearning:Skill {name: 'Deep Learning', category: 'Technical'})
+MERGE (digitalMarketingStrategy:Skill {name: 'Digital Marketing Strategy', category: 'Business'})
+MERGE (salesTech:Skill {name: 'Sales Tech', category: 'Business'})
+MERGE (communication:Skill {name: 'Communication', category: 'Soft'})
+MERGE (strategicInvestment:Skill {name: 'Strategic Investment', category: 'Business'})
+MERGE (boardAdvisory:Skill {name: 'Board Advisory', category: 'Business'})
+MERGE (cloudPlatforms:Skill {name: 'Cloud Platforms', category: 'Technical'})
+MERGE (dataVisualization:Skill {name: 'Data Visualization', category: 'Technical'})
+MERGE (eventManagement:Skill {name: 'Event Management', category: 'Operations'})
+MERGE (publicSpeaking:Skill {name: 'Public Speaking', category: 'Soft'})
+MERGE (digitalMarketing:Skill {name: 'Digital Marketing', category: 'Business'}) // Added missing create
+
+// Interests (without explicit type property, includes industries as interests)
+MERGE (fintechInterest:Interest {name: 'Fintech'})
+MERGE (saasInterest:Interest {name: 'B2B SaaS'})
+MERGE (techIndustryInterest:Interest {name: 'Technology Industry'})
+MERGE (startupEcosystemInterest:Interest {name: 'Startup Ecosystem'})
+MERGE (mlInterest:Interest {name: 'Machine Learning'})
+MERGE (womenInTech:Interest {name: 'Women in Tech Events'})
+MERGE (peerMentorship:Interest {name: 'Peer Mentorship'})
+MERGE (productStrategy:Interest {name: 'Product Strategy'})
+MERGE (digitalTransform:Interest {name: 'Digital Transformation'})
+MERGE (startupCulture:Interest {name: 'Startup Culture'})
+MERGE (gmtStrategy:Interest {name: 'Go-to-Market Strategy'})
+MERGE (vcTrends:Interest {name: 'VC Trends'})
+MERGE (hiringGrowth:Interest {name: 'Hiring for Growth'})
+MERGE (aiEthicsInterest:Interest {name: 'AI Ethics'})
+MERGE (innovationCulture:Interest {name: 'Innovation Culture'})
+MERGE (leadershipInterest:Interest {name: 'Leadership'})
+MERGE (dataScienceInterest:Interest {name: 'Data Science'})
+MERGE (aiInterest:Interest {name: 'AI'})
+MERGE (openSource:Interest {name: 'Open Source'}) // Added missing create
+MERGE (dataGovernance:Interest {name: 'Data Governance'})
+MERGE (webDev:Interest {name: 'Web Development'})
+MERGE (aiApplications:Interest {name: 'AI Applications'})
+MERGE (talentAcquisition:Interest {name: 'Talent Acquisition'}) // Added missing create
+MERGE (orgCulture:Interest {name: 'Organizational Culture'}) // Added missing create
+MERGE (academicCollaboration:Interest {name: 'Academic Collaboration'})
+MERGE (marketExpansion:Interest {name: 'Market Expansion'})
+MERGE (startupScaling:Interest {name: 'Startup Scaling'})
+MERGE (aiInnovation:Interest {name: 'AI Innovation'})
+MERGE (dataEthics:Interest {name: 'Data Ethics'})
+MERGE (cloudComputing:Interest {name: 'Cloud Computing'})
+MERGE (communityManagement:Interest {name: 'Community Management'})
+MERGE (networkingBestPractices:Interest {name: 'Networking Best Practices'})
+MERGE (futureOfWorkInterest:Interest {name: 'Future of Work'}) // Added missing create
+MERGE (b2bSaaSInterest:Interest {name: 'B2B SaaS'}) // Added missing create - referenced but not created
+MERGE (marketExpansionInterest:Interest {name: 'Market Expansion'}) // Added missing create
+
+MERGE (goalDataScienceRole:Goal {name: 'Data Science Role', type: 'Career'})
+MERGE (goalAIResearch:Goal {name: 'AI Research', type: 'Career'})
+MERGE (goalAttractInvestors:Goal {name: 'Attract Investors', type: 'Business'})
+MERGE (goalScaleProduct:Goal {name: 'Scale Product', type: 'Business'})
+MERGE (goalOptimizeHiring:Goal {name: 'Optimize Hiring', type: 'Business'})
+MERGE (goalDS:Goal {name: 'Transition into Data Science Role', type: 'Career'})
+MERGE (goalSkill:Goal {name: 'Grow Technical Skill Set', type: 'Learning'})
+MERGE (goalShareKnowledge:Goal {name: 'Share Industry Knowledge', type: 'Career'})
+MERGE (goalFindMentees:Goal {name: 'Find High-Potential Mentees', type: 'Career'})
+
+
+MERGE (jaipur:Location {name: 'Jaipur', type: 'City'})
+MERGE (bangalore:Location {name: 'Bengaluru', type: 'City'})
+MERGE (mumbai:Location {name: 'Mumbai', type: 'City'})
+MERGE (delhi:Location {name: 'Delhi', type: 'City'})
+MERGE (hyderabad:Location {name: 'Hyderabad', type: 'City'})
+
+
+// Companies now include 'industry' property
+MERGE (fintechCo:Company {name: 'Fintech Startup', industry: 'Fintech'})
+MERGE (saasCo:Company {name: 'B2B SaaS Startup', industry: 'Software'})
+MERGE (globalTech:Company {name: 'Global Tech Corp', industry: 'Technology'})
+MERGE (techSolutions:Company {name: 'Tech Solutions Inc.', industry: 'Software'})
+MERGE (innovateStartups:Company {name: 'Innovate Startups', industry: 'Startup'})
+MERGE (growthX:Company {name: 'GrowthX Agency', industry: 'Marketing'})
+MERGE (peopleConnect:Company {name: 'PeopleConnect HR', industry: 'HR Tech'})
+MERGE (talentAcqSolutions:Company {name: 'Talent Acq Solutions', industry: 'HR Tech'})
+MERGE (aiInnovationHub:Company {name: 'AI Innovation Hub', industry: 'Research'})
+MERGE (growthMarketingAgency:Company {name: 'Growth Marketing Agency', industry: 'Marketing'})
+MERGE (ventureCapitalFund:Company {name: 'Apex Venture Capital', industry: 'Venture Capital'})
+MERGE (dataConsulting:Company {name: 'Data Insights Consulting', industry: 'Consulting'})
+MERGE (eventOrganizing:Company {name: 'ConnectHub Events', industry: 'Event Management'})
+MERGE (bizConnect:Company {name: 'BizConnect Solutions', industry: 'Consulting'}) // Added missing create
+MERGE (innovateSaaS:Company {name: 'Innovate SaaS Labs', industry: 'Software'}) // Added missing create
+
+
+// Events
+MERGE (aiSummit:Event {eventID: 'EVT001', title: 'AI & Data Summit 2025', type: 'Conference', date: date('2025-07-15')})
+MERGE (startupPitchDay:Event {eventID: 'EVT002', title: 'Startup Pitch Day', type: 'Event', date: date('2025-08-01')})
+MERGE (womenInTechEvent:Event {eventID: 'EVT003', title: 'Women in Tech Leadership Forum', type: 'Conference',date: date('2025-09-10')})
+MERGE (leadershipRoundtable:Event {eventID: 'EVT004', title: 'Executive Leadership Roundtable', type: 'Webinar',date: date('2025-09-20')})
+MERGE (techSummit:Event {eventID: 'EVT005', title: 'Annual Tech Summit', type: 'Conference', date: date('2025-07-01')})
+MERGE (hrTechSummit:Event {eventID: 'EVT006', title: 'HR Tech Summit', type: 'Conference', date: date('2025-09-01')})
+MERGE (startupPitchDayMumbai:Event {eventID: 'EVT007', title: 'Mumbai Startup Pitch Day', type: 'Event', date:date('2025-09-01')})
+MERGE (dataStrategyConf:Event {eventID: 'EVT008', title: 'Data Strategy & Governance Conference', type:'Conference', date: date('2025-10-15')})
+MERGE (communityBuildersSummit:Event {eventID: 'EVT009', title: 'Global Community Builders Summit', type:'Conference', date: date('2025-11-20')})
+MERGE (devFest:Event {eventID: 'EVT010', title: 'Bangalore DevFest', type: 'Conference', date: date('2025-07-01')})
+MERGE (aiResearchForum:Event {eventID: 'EVT011', title: 'Global AI Research Forum', type: 'Webinar', date:date('2025-11-10')})
+MERGE (growthHackingConf:Event {eventID: 'EVT012', title: 'Growth Hacking & B2B SaaS Conference', type:'Conference', date: date('2025-12-01')})
+MERGE (techMeetup:Event {eventID: 'EVT013', title: 'Jaipur Tech Meetup', type: 'Meetup', date: date('2025-06-25')}) // Added missing create
+
+
+// JobRoles
+MERGE (dataAnalystRole:JobRole {title: 'Data Analyst'})
+MERGE (mlEngineerRole:JobRole {title: 'ML Engineer'})
+MERGE (founderRole:JobRole {title: 'Founder'})
+MERGE (growthMarketingRole:JobRole {title: 'Growth Marketing Lead'})
+MERGE (hrManagerRole:JobRole {title: 'HR Manager'})
+MERGE (sbaRole:JobRole {title: 'Senior Business Analyst'})
+MERGE (jnrDevRole:JobRole {title: 'Junior Software Developer'})
+MERGE (headPMRole:JobRole {title: 'Head of Product'})
+MERGE (investorRole:JobRole {title: 'Investor'})
+MERGE (dataStrategistRole:JobRole {title: 'Data Strategist'})
+MERGE (communityManagerRole:JobRole {title: 'Community Manager'})
+MERGE (retiredTechVPRole:JobRole {title: 'Retired Tech VP'}) // Added missing create
+MERGE (researchScientistRole:JobRole {title: 'Research Scientist'}) // Added missing create
+MERGE (growthMarketingLeadRole:JobRole {title: 'Growth Marketing Lead'}) // Added missing create
+
+
+// Universities
+MERGE (iitBombay:University {name: 'IIT Bombay'})
+MERGE (nitJaipur:University {name: 'NIT Jaipur'})
+MERGE (stanford:University {name: 'Stanford University'})
+MERGE (bangaloreUni:University {name: 'Bangalore University'})
+MERGE (mumbaiUni:University {name: 'Mumbai University'})
+MERGE (delhiUni:University {name: 'Delhi University'})
+MERGE (hyderabadUniversity:University {name: 'University of Hyderabad'})
+
+
+// --- 3. Establish Relationships between Users and Entities ---
+
+// Asha the Analyst (Emerging Professional)
+MERGE (asha)-[:LIVES_IN]->(jaipur)
+MERGE (asha)-[:WORKS_AT {isCurrent: true}]->(fintechCo)
+MERGE (asha)-[:HAS_SKILL {proficiency: 'Intermediate'}]->(python)
+MERGE (asha)-[:HAS_SKILL {proficiency: 'Beginner'}]->(ml)
+MERGE (asha)-[:HAS_INTEREST]->(mlInterest)
+MERGE (asha)-[:HAS_INTEREST]->(womenInTech)
+MERGE (asha)-[:HAS_INTEREST]->(peerMentorship)
+MERGE (asha)-[:HAS_INTEREST]->(fintechInterest)
+MERGE (asha)-[:AIMS_FOR]->(goalDS)
+MERGE (asha)-[:AIMS_FOR]->(goalSkill)
+MERGE (asha)-[:ATTENDED {date: date('2025-07-15')}]->(aiSummit)
+MERGE (asha)-[:ATTENDING {registrationDate: date('2025-09-01')}]->(womenInTechEvent)
+MERGE (asha)-[:DESIRES_INDUSTRY]->(techIndustryInterest)
+MERGE (asha)-[:HAS_CURRENT_ROLE]->(dataAnalystRole)
+MERGE (asha)-[:STUDIED_AT {degree: 'B.Tech', year: 2022}]->(nitJaipur)
+
+
+// Lina the Launcher (Startup Founder)
+MERGE (lina)-[:LIVES_IN]->(bangalore)
+MERGE (lina)-[:WORKS_AT {isCurrent: true}]->(saasCo)
+MERGE (lina)-[:HAS_SKILL {proficiency: 'Expert'}]->(productMgt)
+MERGE (lina)-[:HAS_SKILL {proficiency: 'Advanced'}]->(fundraising)
+MERGE (lina)-[:HAS_INTEREST]->(gmtStrategy)
+MERGE (lina)-[:HAS_INTEREST]->(vcTrends)
+MERGE (lina)-[:HAS_INTEREST]->(hiringGrowth)
+MERGE (lina)-[:HAS_INTEREST]->(saasInterest)
+MERGE (lina)-[:HAS_INTEREST]->(startupEcosystemInterest)
+MERGE (lina)-[:AIMS_FOR]->(goalScaleProduct)
+MERGE (lina)-[:AIMS_FOR]->(goalAttractInvestors)
+MERGE (lina)-[:ATTENDED {date: date('2025-08-01')}]->(startupPitchDay)
+MERGE (lina)-[:HAS_CURRENT_ROLE]->(founderRole)
+MERGE (lina)-[:STUDIED_AT {degree: 'M.Tech', year: 2015}]->(iitBombay)
+
+
+// James the Connector (Executive Mentor)
+MERGE (james)-[:LIVES_IN]->(delhi)
+MERGE (james)-[:WORKED_AT {endDate: date('2024-12-31')}]->(globalTech)
+MERGE (james)-[:HAS_SKILL {proficiency: 'Expert'}]->(leadership)
+MERGE (james)-[:HAS_SKILL {proficiency: 'Advanced'}]->(aiEthicsSkill)
+MERGE (james)-[:HAS_INTEREST]->(aiEthicsInterest)
+MERGE (james)-[:HAS_INTEREST]->(leadershipInterest)
+MERGE (james)-[:HAS_INTEREST]->(innovationCulture)
+MERGE (james)-[:HAS_INTEREST]->(techIndustryInterest)
+MERGE (james)-[:AIMS_FOR]->(goalShareKnowledge)
+MERGE (james)-[:AIMS_FOR]->(goalFindMentees)
+MERGE (james)-[:ATTENDED {date: date('2025-09-20')}]->(leadershipRoundtable)
+MERGE (james)-[:HAS_CURRENT_ROLE]->(retiredTechVPRole)
+MERGE (james)-[:STUDIED_AT {degree: 'Ph.D.', year: 1995}]->(stanford)
+
+
+// Priyanka the Coder
+MERGE (priyanka)-[:LIVES_IN]->(bangalore)
+MERGE (priyanka)-[:WORKS_AT {isCurrent: true}]->(techSolutions)
+MERGE (priyanka)-[:HAS_SKILL {proficiency: 'Advanced'}]->(python)
+MERGE (priyanka)-[:HAS_SKILL {proficiency: 'Intermediate'}]->(js)
+MERGE (priyanka)-[:HAS_SKILL {proficiency: 'Intermediate'}]->(git)
+MERGE (priyanka)-[:HAS_INTEREST]->(mlInterest)
+MERGE (priyanka)-[:HAS_INTEREST]->(openSource)
+MERGE (priyanka)-[:HAS_INTEREST]->(webDev)
+MERGE (priyanka)-[:AIMS_FOR]->(goalSkill)
+MERGE (priyanka)-[:SEEKS_MENTORSHIP_FROM]->(james)
+MERGE (priyanka)-[:STUDIED_AT {degree: 'B.Tech', year: 2024}]->(iitBombay)
+MERGE (priyanka)-[:ATTENDING {registrationDate: date('2025-07-01')}]->(devFest)
+MERGE (priyanka)-[:HAS_CURRENT_ROLE]->(jnrDevRole)
+
+// Sanjay the Strategist
+MERGE (sanjay)-[:LIVES_IN]->(jaipur)
+MERGE (sanjay)-[:WORKS_AT {isCurrent: true}]->(bizConnect)
+MERGE (sanjay)-[:HAS_SKILL {proficiency: 'Expert'}]->(pmSkill)
+MERGE (sanjay)-[:HAS_SKILL {proficiency: 'Advanced'}]->(dataAnalysis)
+MERGE (sanjay)-[:HAS_SKILL {proficiency: 'Advanced'}]->(sql)
+MERGE (sanjay)-[:HAS_INTEREST]->(fintechInterest)
+MERGE (sanjay)-[:HAS_INTEREST]->(dataGovernance)
+MERGE (sanjay)-[:AIMS_FOR]->(goalShareKnowledge)
+MERGE (sanjay)-[:ATTENDED {date: date('2025-07-15')}]->(aiSummit)
+MERGE (sanjay)-[:ATTENDING {registrationDate: date('2025-06-15')}]->(techMeetup)
+MERGE (sanjay)-[:HAS_CURRENT_ROLE]->(sbaRole)
+
+// David the PM
+MERGE (david)-[:LIVES_IN]->(bangalore)
+MERGE (david)-[:WORKS_AT {isCurrent: true}]->(innovateSaaS)
+MERGE (david)-[:HAS_SKILL {proficiency: 'Expert'}]->(productMgt)
+MERGE (david)-[:HAS_SKILL {proficiency: 'Advanced'}]->(uxDesign)
+MERGE (david)-[:HAS_SKILL {proficiency: 'Advanced'}]->(aiStrategy)
+MERGE (david)-[:HAS_INTEREST]->(saasInterest)
+MERGE (david)-[:HAS_INTEREST]->(productStrategy)
+MERGE (david)-[:HAS_INTEREST]->(aiApplications)
+MERGE (david)-[:HAS_INTEREST]->(vcTrends)
+MERGE (david)-[:AIMS_FOR]->(goalScaleProduct)
+MERGE (david)-[:PROVIDES_MENTORSHIP_TO]->(priyanka)
+MERGE (david)-[:ATTENDED {date: date('2025-08-01')}]->(startupPitchDay)
+MERGE (david)-[:HAS_CURRENT_ROLE]->(headPMRole)
+
+// Aditi the Recruiter
+MERGE (aditi)-[:LIVES_IN]->(delhi)
+MERGE (aditi)-[:WORKS_AT {isCurrent: true}]->(talentAcqSolutions)
+MERGE (aditi)-[:HAS_SKILL {proficiency: 'Advanced'}]->(recruitment)
+MERGE (aditi)-[:HAS_SKILL {proficiency: 'Intermediate'}]->(hrTech)
+MERGE (aditi)-[:HAS_INTEREST]->(talentAcquisition)
+MERGE (aditi)-[:HAS_INTEREST]->(orgCulture)
+MERGE (aditi)-[:HAS_INTEREST]->(startupEcosystemInterest)
+MERGE (aditi)-[:AIMS_FOR]->(goalAttractInvestors)
+MERGE (aditi)-[:ATTENDED {date: date('2025-10-05')}]->(hrTechSummit)
+MERGE (aditi)-[:HAS_CURRENT_ROLE]->(hrManagerRole)
+MERGE (aditi)-[:DESIRES_INDUSTRY]->(techIndustryInterest)
+
+// Rohit the Researcher
+MERGE (rohit)-[:LIVES_IN]->(bangalore)
+MERGE (rohit)-[:WORKS_AT {isCurrent: true}]->(aiInnovationHub)
+MERGE (rohit)-[:HAS_SKILL {proficiency: 'Expert'}]->(ml)
+MERGE (rohit)-[:HAS_SKILL {proficiency: 'Advanced'}]->(nlp)
+MERGE (rohit)-[:HAS_SKILL {proficiency: 'Advanced'}]->(deepLearning)
+MERGE (rohit)-[:HAS_INTEREST]->(mlInterest)
+MERGE (rohit)-[:HAS_INTEREST]->(aiEthicsInterest)
+MERGE (rohit)-[:HAS_INTEREST]->(academicCollaboration)
+MERGE (rohit)-[:AIMS_FOR]->(goalShareKnowledge)
+MERGE (rohit)-[:ATTENDED {date: date('2025-11-10')}]->(aiResearchForum)
+MERGE (rohit)-[:HAS_CURRENT_ROLE]->(researchScientistRole)
+MERGE (rohit)-[:STUDIED_AT {degree: 'Ph.D.', year: 2020}]->(stanford)
+
+// Neha the Growth Lead
+MERGE (neha)-[:LIVES_IN]->(mumbai)
+MERGE (neha)-[:WORKS_AT {isCurrent: true}]->(growthMarketingAgency)
+MERGE (neha)-[:HAS_SKILL {proficiency: 'Expert'}]->(digitalMarketingStrategy)
+MERGE (neha)-[:HAS_SKILL {proficiency: 'Advanced'}]->(salesTech)
+MERGE (neha)-[:HAS_INTEREST]->(gmtStrategy)
+MERGE (neha)-[:HAS_INTEREST]->(marketExpansion)
+MERGE (neha)-[:HAS_INTEREST]->(saasInterest)
+MERGE (neha)-[:AIMS_FOR]->(goalScaleProduct)
+MERGE (neha)-[:ATTENDED {date: date('2025-12-01')}]->(growthHackingConf)
+MERGE (neha)-[:HAS_CURRENT_ROLE]->(growthMarketingLeadRole)
+MERGE (neha)-[:STUDIED_AT {degree: 'MBA', year: 2016}]->(mumbaiUni)
+
+// Vikram the Investor
+MERGE (vikram)-[:LIVES_IN]->(mumbai)
+MERGE (vikram)-[:WORKS_AT {isCurrent: true}]->(ventureCapitalFund)
+MERGE (vikram)-[:HAS_SKILL {proficiency: 'Expert'}]->(strategicInvestment)
+MERGE (vikram)-[:HAS_SKILL {proficiency: 'Advanced'}]->(boardAdvisory)
+MERGE (vikram)-[:HAS_INTEREST]->(vcTrends)
+MERGE (vikram)-[:HAS_INTEREST]->(startupScaling)
+MERGE (vikram)-[:HAS_INTEREST]->(aiInnovation)
+MERGE (vikram)-[:AIMS_FOR]->(goalAttractInvestors)
+MERGE (vikram)-[:PROVIDES_MENTORSHIP_TO]->(lina)
+MERGE (lina)-[:SEEKS_MENTORSHIP_FROM]->(vikram)
+MERGE (vikram)-[:ATTENDED {date: date('2025-09-01')}]->(startupPitchDayMumbai)
+MERGE (vikram)-[:HAS_CURRENT_ROLE]->(investorRole)
+MERGE (vikram)-[:DESIRES_INDUSTRY]->(startupEcosystemInterest)
+
+// Disha the Data Strategist
+MERGE (disha)-[:LIVES_IN]->(delhi)
+MERGE (disha)-[:WORKS_AT {isCurrent: true}]->(dataConsulting)
+MERGE (disha)-[:HAS_SKILL {proficiency: 'Expert'}]->(dataAnalysis)
+MERGE (disha)-[:HAS_SKILL {proficiency: 'Advanced'}]->(cloudPlatforms)
+MERGE (disha)-[:HAS_SKILL {proficiency: 'Advanced'}]->(dataVisualization)
+MERGE (disha)-[:HAS_INTEREST]->(dataGovernance)
+MERGE (disha)-[:HAS_INTEREST]->(cloudComputing)
+MERGE (disha)-[:HAS_INTEREST]->(aiEthicsInterest)
+MERGE (disha)-[:AIMS_FOR]->(goalDS)
+MERGE (disha)-[:ATTENDED {date: date('2025-10-15')}]->(dataStrategyConf)
+MERGE (disha)-[:HAS_CURRENT_ROLE]->(dataStrategistRole)
+MERGE (disha)-[:STUDIED_AT {degree: 'M.Sc. Data Sci', year: 2013}]->(iitBombay)
+
+// Sanjana the Community Builder
+MERGE (sanjana)-[:LIVES_IN]->(hyderabad)
+MERGE (sanjana)-[:WORKS_AT {isCurrent: true}]->(eventOrganizing)
+MERGE (sanjana)-[:HAS_SKILL {proficiency: 'Expert'}]->(eventManagement)
+MERGE (sanjana)-[:HAS_SKILL {proficiency: 'Advanced'}]->(publicSpeaking)
+MERGE (sanjana)-[:HAS_INTEREST]->(communityManagement)
+MERGE (sanjana)-[:HAS_INTEREST]->(networkingBestPractices)
+MERGE (sanjana)-[:HAS_INTEREST]->(womenInTech)
+MERGE (sanjana)-[:AIMS_FOR]->(goalShareKnowledge)
+MERGE (sanjana)-[:ATTENDED {date: date('2025-11-20')}]->(communityBuildersSummit)
+MERGE (sanjana)-[:HAS_CURRENT_ROLE]->(communityManagerRole)
+MERGE (sanjana)-[:STUDIED_AT {degree: 'B.A. Comm.', year: 2017}]->(mumbaiUni)
+
+
+// --- 4. Establish Relationships between Entities ---
+
+// Company Locations
+MERGE (techSolutions)-[:LOCATED_AT]->(bangalore)
+MERGE (innovateStartups)-[:LOCATED_AT]->(mumbai)
+MERGE (growthX)-[:LOCATED_AT]->(mumbai)
+MERGE (peopleConnect)-[:LOCATED_AT]->(delhi)
+MERGE (talentAcqSolutions)-[:LOCATED_AT]->(delhi)
+MERGE (aiInnovationHub)-[:LOCATED_AT]->(bangalore)
+MERGE (growthMarketingAgency)-[:LOCATED_AT]->(mumbai)
+MERGE (ventureCapitalFund)-[:LOCATED_AT]->(mumbai)
+MERGE (dataConsulting)-[:LOCATED_AT]->(delhi)
+MERGE (eventOrganizing)-[:LOCATED_AT]->(hyderabad)
+MERGE (bizConnect)-[:LOCATED_AT]->(jaipur) // Added location for bizConnect
+MERGE (innovateSaaS)-[:LOCATED_AT]->(bangalore) // Added location for innovateSaaS
+
+
+// Event Locations and Topics
+MERGE (aiSummit)-[:HELD_AT]->(jaipur)
+MERGE (aiSummit)-[:COVERS_TOPIC]->(mlInterest)
+MERGE (aiSummit)-[:COVERS_TOPIC]->(ds)
+
+MERGE (startupPitchDay)-[:HELD_AT]->(mumbai)
+MERGE (startupPitchDay)-[:COVERS_TOPIC]->(startupCulture)
+MERGE (startupPitchDay)-[:COVERS_TOPIC]->(vcTrends)
+
+MERGE (womenInTechEvent)-[:HELD_AT]->(delhi)
+MERGE (womenInTechEvent)-[:COVERS_TOPIC]->(womenInTech)
+MERGE (womenInTechEvent)-[:COVERS_TOPIC]->(leadershipInterest)
+
+MERGE (leadershipRoundtable)-[:HELD_AT]->(delhi)
+MERGE (leadershipRoundtable)-[:COVERS_TOPIC]->(leadershipInterest)
+MERGE (leadershipRoundtable)-[:COVERS_TOPIC]->(aiEthicsInterest)
+
+MERGE (techSummit)-[:HELD_AT]->(bangalore)
+MERGE (techSummit)-[:COVERS_TOPIC]->(dataScienceInterest)
+MERGE (techSummit)-[:COVERS_TOPIC]->(aiInterest)
+
+MERGE (hrTechSummit)-[:HELD_AT]->(delhi)
+MERGE (hrTechSummit)-[:COVERS_TOPIC]->(talentAcquisition)
+MERGE (hrTechSummit)-[:COVERS_TOPIC]->(futureOfWorkInterest)
+
+MERGE (startupPitchDayMumbai)-[:HELD_AT]->(mumbai)
+MERGE (startupPitchDayMumbai)-[:COVERS_TOPIC]->(vcTrends)
+MERGE (startupPitchDayMumbai)-[:COVERS_TOPIC]->(startupScaling)
+
+MERGE (dataStrategyConf)-[:HELD_AT]->(delhi)
+MERGE (dataStrategyConf)-[:COVERS_TOPIC]->(dataGovernance)
+MERGE (dataStrategyConf)-[:COVERS_TOPIC]->(dataAnalysis)
+
+MERGE (communityBuildersSummit)-[:HELD_AT]->(hyderabad)
+MERGE (communityBuildersSummit)-[:COVERS_TOPIC]->(communityManagement)
+MERGE (communityBuildersSummit)-[:COVERS_TOPIC]->(networkingBestPractices)
+
+MERGE (devFest)-[:HELD_AT]->(bangalore)
+MERGE (devFest)-[:COVERS_TOPIC]->(mlInterest)
+MERGE (devFest)-[:COVERS_TOPIC]->(openSource)
+MERGE (devFest)-[:COVERS_TOPIC]->(python)
+
+MERGE (aiResearchForum)-[:HELD_AT]->(bangalore)
+MERGE (aiResearchForum)-[:COVERS_TOPIC]->(mlInterest)
+MERGE (aiResearchForum)-[:COVERS_TOPIC]->(nlp)
+
+MERGE (growthHackingConf)-[:HELD_AT]->(mumbai)
+MERGE (growthHackingConf)-[:COVERS_TOPIC]->(gmtStrategy)
+MERGE (growthHackingConf)-[:COVERS_TOPIC]->(marketExpansion)
+
+MERGE (techMeetup)-[:HELD_AT]->(jaipur) // Location for techMeetup
+
+
+// Mentor-Mentee relationships
+MERGE (james)-[:PROVIDES_MENTORSHIP_TO]->(asha)
+MERGE (asha)-[:SEEKS_MENTORSHIP_FROM]->(james)
+MERGE (david)-[:PROVIDES_MENTORSHIP_TO]->(priyanka)
+MERGE (priyanka)-[:SEEKS_MENTORSHIP_FROM]->(david)
+MERGE (vikram)-[:PROVIDES_MENTORSHIP_TO]->(lina)
+MERGE (lina)-[:SEEKS_MENTORSHIP_FROM]->(vikram)
+MERGE (disha)-[:PROVIDES_MENTORSHIP_TO]->(rohit)
+MERGE (rohit)-[:SEEKS_MENTORSHIP_FROM]->(disha)
+
+
+// Skill relevance to Topic/Interest
+MERGE (ml)-[:RELEVANT_TO_TOPIC]->(fintechInterest)
+MERGE (ds)-[:RELEVANT_TO_TOPIC]->(fintechInterest)
+MERGE (productMgt)-[:RELEVANT_TO_TOPIC]->(saasInterest)
+MERGE (fundraising)-[:RELEVANT_TO_TOPIC]->(saasInterest)
+MERGE (leadership)-[:RELEVANT_TO_TOPIC]->(techIndustryInterest)
+MERGE (aiEthicsSkill)-[:RELEVANT_TO_TOPIC]->(techIndustryInterest)
+MERGE (sql)-[:RELEVANT_TO_TOPIC]->(dataScienceInterest)
+MERGE (js)-[:RELEVANT_TO_TOPIC]->(webDev)
+MERGE (pmSkill)-[:RELEVANT_TO_TOPIC]->(startupCulture)
+MERGE (dataAnalysis)-[:RELEVANT_TO_TOPIC]->(dataScienceInterest)
+MERGE (uxDesign)-[:RELEVANT_TO_TOPIC]->(productStrategy)
+MERGE (aiStrategy)-[:RELEVANT_TO_TOPIC]->(aiInnovation)
+MERGE (bizDev)-[:RELEVANT_TO_TOPIC]->(marketExpansionInterest)
+MERGE (recruitment)-[:RELEVANT_TO_TOPIC]->(talentAcquisition)
+MERGE (hrTech)-[:RELEVANT_TO_TOPIC]->(futureOfWorkInterest)
+MERGE (nlp)-[:RELEVANT_TO_TOPIC]->(aiInterest)
+MERGE (deepLearning)-[:RELEVANT_TO_TOPIC]->(aiInterest)
+MERGE (digitalMarketingStrategy)-[:RELEVANT_TO_TOPIC]->(marketExpansionInterest)
+MERGE (salesTech)-[:RELEVANT_TO_TOPIC]->(b2bSaaSInterest)
+MERGE (strategicInvestment)-[:RELEVANT_TO_TOPIC]->(vcTrends)
+MERGE (boardAdvisory)-[:RELEVANT_TO_TOPIC]->(startupScaling)
+MERGE (cloudPlatforms)-[:RELEVANT_TO_TOPIC]->(cloudComputing)
+MERGE (dataVisualization)-[:RELEVANT_TO_TOPIC]->(dataScienceInterest)
+MERGE (eventManagement)-[:RELEVANT_TO_TOPIC]->(communityManagement)
+MERGE (publicSpeaking)-[:RELEVANT_TO_TOPIC]->(networkingBestPractices)
+
+
+// JobRole REQUIRES_SKILL mappings
+MERGE (dataAnalystRole)-[:REQUIRES_SKILL]->(sql)
+MERGE (dataAnalystRole)-[:REQUIRES_SKILL]->(python)
+
+MERGE (mlEngineerRole)-[:REQUIRES_SKILL]->(ml)
+MERGE (mlEngineerRole)-[:REQUIRES_SKILL]->(python)
+MERGE (mlEngineerRole)-[:REQUIRES_SKILL]->(nlp)
+
+MERGE (founderRole)-[:REQUIRES_SKILL]->(productMgt) // Used pmSkill for Project Management, but productMgt for Product Management
+MERGE (founderRole)-[:REQUIRES_SKILL]->(fundraising)
+MERGE (founderRole)-[:REQUIRES_SKILL]->(leadership)
+
+MERGE (growthMarketingRole)-[:REQUIRES_SKILL]->(digitalMarketing)
+MERGE (growthMarketingRole)-[:REQUIRES_SKILL]->(salesTech)
+MERGE (growthMarketingRole)-[:REQUIRES_SKILL]->(communication)
+
+MERGE (hrManagerRole)-[:REQUIRES_SKILL]->(recruitment)
+MERGE (hrManagerRole)-[:REQUIRES_SKILL]->(hrTech) // Fixed typo here
+MERGE (hrManagerRole)-[:REQUIRES_SKILL]->(communication)
+
+MERGE (sbaRole)-[:REQUIRES_SKILL]->(dataAnalysis)
+MERGE (sbaRole)-[:REQUIRES_SKILL]->(sql)
+MERGE (sbaRole)-[:REQUIRES_SKILL]->(pmSkill)
+
+MERGE (jnrDevRole)-[:REQUIRES_SKILL]->(python)
+MERGE (jnrDevRole)-[:REQUIRES_SKILL]->(js)
+MERGE (jnrDevRole)-[:REQUIRES_SKILL]->(git)
+
+MERGE (headPMRole)-[:REQUIRES_SKILL]->(productMgt)
+MERGE (headPMRole)-[:REQUIRES_SKILL]->(aiStrategy)
+MERGE (headPMRole)-[:REQUIRES_SKILL]->(leadership)
+
+MERGE (investorRole)-[:REQUIRES_SKILL]->(strategicInvestment)
+MERGE (investorRole)-[:REQUIRES_SKILL]->(boardAdvisory)
+
+MERGE (dataStrategistRole)-[:REQUIRES_SKILL]->(dataAnalysis)
+MERGE (dataStrategistRole)-[:REQUIRES_SKILL]->(cloudPlatforms)
+MERGE (dataStrategistRole)-[:REQUIRES_SKILL]->(leadership)
+
+MERGE (communityManagerRole)-[:REQUIRES_SKILL]->(eventManagement)
+MERGE (communityManagerRole)-[:REQUIRES_SKILL]->(publicSpeaking)
+MERGE (communityManagerRole)-[:REQUIRES_SKILL]->(networkingBestPractices)

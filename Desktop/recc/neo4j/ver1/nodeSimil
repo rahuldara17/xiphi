@@ -1,0 +1,10 @@
+CALL gds.nodeSimilarity.write(
+    'user_interaction_graph',
+    {
+        writeRelationshipType: 'SIMILAR_TO',
+        writeProperty: 'score',
+        topK: 50,
+        similarityCutoff: 0.0
+    }
+)
+YIELD nodesCompared, relationshipsWritten, writeMillis;
