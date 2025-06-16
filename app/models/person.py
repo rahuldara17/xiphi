@@ -1,5 +1,5 @@
 # schemas.py
-from pydantic import BaseModel, EmailStr, HttpUrl, conlist
+from pydantic import BaseModel, EmailStr, HttpUrl, conlist,Field,ConfigDict
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
@@ -19,16 +19,15 @@ class UserCreate(BaseModel):
     biography: Optional[str] = None
     phone: Optional[str] = None
     registration_category: RegistrationCategory = RegistrationCategory.attendee
-
+    
 class UserRead(BaseModel):
     user_id: UUID
     email: EmailStr
     first_name: str
     last_name: str
     registration_category: RegistrationCategory
-
-    class Config:
-        orm_mode = True
+    
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SingleUserSkill(BaseModel):
@@ -44,13 +43,13 @@ class SingleUserInterest(BaseModel):
     valid_to: Optional[datetime] = None
 
 class SingleUserJobRole(BaseModel):
-    job_role : str
+    job_role_title : str
     valid_from: Optional[datetime] = None
     valid_to: Optional[datetime] = None
 
 class SingleUserCompany(BaseModel):
     company_name: str
-    joined_at: Optional[datetime] = None
+    assigned_at: Optional[datetime] = None
     valid_from: Optional[datetime] = None
     valid_to: Optional[datetime] = None
 
@@ -61,5 +60,4 @@ class UserUpdateSchema(BaseModel):
     user_interests: Optional[List[SingleUserInterest]] = None
     user_company: Optional[SingleUserCompany] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

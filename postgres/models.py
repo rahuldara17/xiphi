@@ -247,7 +247,7 @@ class UserTag(Base):
         nullable=False,
         server_default="infinity"
     )
-    assigned_at = Column(
+    assigned_at= Column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now()
