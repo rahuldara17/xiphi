@@ -1,8 +1,9 @@
 import asyncio
 from fastapi import FastAPI
+from app.api.v1.api import api_router
 from app.db.database import get_db, AsyncSessionLocal, engine, Base
 from app.db.neo4j import (
-    get_neo4j_driver,
+    get_neo4j_async_driver,
     close_neo4j_driver,
     initialize_gds,
     refresh_gds_graphs_and_similarities, # This will be called on startup
@@ -12,12 +13,17 @@ from app.api.v1.endpoints.people import router as people_router
 from datetime import datetime, timedelta, timezone 
 
 app = FastAPI(
-    title="Knowledge Graph API",
-    description="API for managing users and fetching recommendations using PostgreSQL and Neo4j.",
+    title="Your API",
+    description="API for managing people and events",
     version="1.0.0",
+    openapi_url="/openapi.json", # Standard
+    docs_url="/docs", # Standard for Swagger UI
+    redoc_url="/redoc" # Standard for ReDoc
 )
-app.include_router(people_router, prefix="/api/v1/people", tags=["People"])
-
+app.include_router(
+    api_router,
+    prefix="/api/v1" # This prefix will apply to all routes nested under api_router
+)
 # --- GLOBAL IN-MEMORY STATE FOR GRAPH COMPUTATION TRIGGERS ---
 _total_profile_updates_since_last_comp: int = 0
 _last_similarity_computed_at: datetime = datetime.now(timezone.utc)
@@ -98,7 +104,7 @@ async def startup_event():
         await conn.run_sync(Base.metadata.create_all)
     print("PostgreSQL tables initialized.")
 
-    await get_neo4j_driver()
+    await get_neo4j_async_driver()
     await initialize_gds()
     
     # --- HERE IS THE IMMEDIATE REFRESH ON STARTUP ---

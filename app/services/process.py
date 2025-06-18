@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from sentence_transformers import SentenceTransformer
+from postgres.models import Location
 # Removed GraphComputationState, increment_profile_update_count, reset_and_update_similarity_state imports
 from postgres.models import SkillInterest, Company, JobRole # Ensure these are still here
 import uuid
@@ -155,3 +156,18 @@ async def find_or_create_job_role(db: AsyncSession, job_role_title: str) -> Dict
             "job_role_id": str(new_id),
             "title": job_role_title # Return the provided job_role_title as 'title'
         }
+async def find_or_create_location(db: AsyncSession, location_name: str) -> Dict[str, Any]:
+    """
+    Finds a location by name in Postgres, or creates it if it doesn't exist.
+    Returns the location's ID and name.
+    """
+    result = await db.execute(select(Location).filter(Location.name == location_name))
+    location_obj = result.scalars().first()
+    if not location_obj:
+        new_location_uuid = uuid.uuid4()
+        location_obj = Location(location_id=new_location_uuid, name=location_name)
+        db.add(location_obj)
+        await db.commit()
+        await db.refresh(location_obj)
+        print(f"Postgres: Created new Location: {location_name} (ID: {new_location_uuid})")
+    return {"location_id": location_obj.location_id, "name": location_obj.name}

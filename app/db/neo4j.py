@@ -1,10 +1,14 @@
+# app/db/neo4j.py
+
 import os
 import asyncio
 from neo4j import AsyncGraphDatabase, GraphDatabase # Use AsyncGraphDatabase for main ops, GraphDatabase for GDS's internal needs
 from graphdatascience import GraphDataScience # GDS client
-from typing import List, Dict, Any, Optional # Added Optional for biography parameter
 
-from app.core.config import settings # Assuming settings are correctly defined here
+from app.core.config import settings
+from typing import List, Dict, Any, Optional # Added Dict, Any for broader type hinting
+from datetime import datetime # Ensure datetime is imported for date types
+from uuid import UUID # Ensure UUID is imported for type hints
 
 # --- GLOBAL DRIVER INSTANCES ---
 _neo4j_async_driver_instance = None # The async driver instance for general CRUD
@@ -12,7 +16,7 @@ _neo4j_sync_driver_for_gds_instance = None # A separate sync driver instance spe
 gds = None # Global GDS client instance
 
 
-async def get_neo4j_driver():
+async def get_neo4j_async_driver():
     """Returns the Neo4j ASYNC driver instance, initializing if not already."""
     global _neo4j_async_driver_instance
     if _neo4j_async_driver_instance is None:
@@ -66,13 +70,11 @@ async def _try_project_gds_graph(graph_name: str, node_labels: List[str], relati
     """Helper to drop and project a GDS graph, wrapping sync GDS calls in to_thread."""
     try:
         print(f"Dropping existing GDS graph '{graph_name}'...")
-        # Use asyncio.to_thread for synchronous GDS calls
         await asyncio.to_thread(gds.graph.drop, graph_name)
         print(f"Projecting GDS graph '{graph_name}'...")
         await asyncio.to_thread(gds.graph.project, graph_name, node_labels, relationship_types)
         print(f"GDS graph '{graph_name}' projected successfully.")
     except Exception as e:
-        # Check for specific "does not exist" errors to handle first-time projection gracefully
         error_msg = str(e).lower()
         if "does not exist" in error_msg or "no graph exists" in error_msg:
             print(f"Graph '{graph_name}' did not exist, proceeding to project.")
@@ -81,10 +83,10 @@ async def _try_project_gds_graph(graph_name: str, node_labels: List[str], relati
                 print(f"GDS graph '{graph_name}' projected successfully (after initial drop attempt).")
             except Exception as project_e:
                 print(f"Error during projection of '{graph_name}' after drop attempt: {project_e}")
-                raise project_e # Re-raise serious projection errors
+                raise project_e
         else:
             print(f"Error projecting GDS graph '{graph_name}': {e}")
-            raise # Re-raise unexpected errors
+            raise
 
 
 async def refresh_gds_graphs_and_similarities():
@@ -95,10 +97,9 @@ async def refresh_gds_graphs_and_similarities():
     global gds
 
     if gds is None:
-        # Defensive: If GDS client somehow isn't initialized yet, try to initialize it here.
         print("GDS client not initialized within refresh_gds_graphs_and_similarities. Attempting initialization.")
         await initialize_gds()
-        if gds is None:
+        if gds is None: # Defensive check if initialization still failed
             print("GDS client could not be initialized. Aborting GDS refresh.")
             return
 
@@ -108,12 +109,18 @@ async def refresh_gds_graphs_and_similarities():
     print("Projecting GDS graphs...")
     await _try_project_gds_graph(
         DEMO_GRAPH_NAME,
-        ['User', 'Company', 'Location', 'University'],
+        ['User', 'Company', 'Location', 'University', 'Conference', 'Event'], # Added Conference, Event (component)
         {
             'WORKS_AT': {'orientation': 'UNDIRECTED'},
             'WORKED_AT': {'orientation': 'UNDIRECTED'},
             'LIVES_IN': {'orientation': 'UNDIRECTED'},
-            'STUDIED_AT': {'orientation': 'UNDIRECTED'}
+            'STUDIED_AT': {'orientation': 'UNDIRECTED'},
+            'REGISTERED_FOR': {'orientation': 'UNDIRECTED'}, # User registered for Conference
+            'ATTENDS': {'orientation': 'UNDIRECTED'}, # User attends Event (component)
+            'HAS_EVENT': {'orientation': 'UNDIRECTED'}, # Conference has Event (component)
+            'ORGANIZES': {'orientation': 'UNDIRECTED'}, # Organizer User to Conference
+            'EXHIBITS_AT': {'orientation': 'UNDIRECTED'}, # Exhibitor User to Event (component)
+            'PRESENTS_AT': {'orientation': 'UNDIRECTED'} # Presenter User to Event (component)
         }
     )
 
@@ -138,15 +145,13 @@ async def refresh_gds_graphs_and_similarities():
     # Compute all similarities
     print("Computing all GDS similarities...")
 
-    # Ensure graphs are retrieved after projection to guarantee they are fresh
-    # Wrap in try-except in case get fails (though _try_project_gds_graph should have caught it)
     try:
         demo_graph = await asyncio.to_thread(gds.graph.get, DEMO_GRAPH_NAME)
         interest_graph = await asyncio.to_thread(gds.graph.get, INTEREST_GRAPH_NAME)
         skill_graph = await asyncio.to_thread(gds.graph.get, SKILL_GRAPH_NAME)
     except Exception as e:
         print(f"Failed to retrieve projected graphs before similarity computation: {e}")
-        raise # Re-raise as this is a critical failure for similarity
+        raise
 
     # Helper to abstract similarity computation for reusability
     async def _compute_similarity(graph: Any, relationship_type: str, property_name: str):
@@ -161,7 +166,7 @@ async def refresh_gds_graphs_and_similarities():
             print(f"{relationship_type} calculation complete.")
         except Exception as e:
             print(f"Error computing {relationship_type}: {e}")
-            raise # Re-raise to ensure the overall refresh knows it failed
+            raise
 
     try:
         await _compute_similarity(demo_graph, 'SIMILAR_DEMO', 'score')
@@ -170,35 +175,43 @@ async def refresh_gds_graphs_and_similarities():
         print("All GDS similarities computed.")
     except Exception as e:
         print(f"An error occurred during similarity computation: {e}")
-        raise # Re-raise if any similarity computation fails
+        raise
 
     print("Full GDS refresh process completed.")
 
-# --- Asynchronous Neo4j CRUD functions ---
-# These functions will use the AsyncGraphDatabase driver.
+# --- Asynchronous Neo4j CRUD functions (Updated User properties and new Conference/Event) ---
 
 async def create_user_node(user_id: str, fullName: str, email: str, 
-                     first_name: str, last_name: str, biography: Optional[str] = None): # ADD biography parameter
-    driver = await get_neo4j_driver()
+                     first_name: str, last_name: str, 
+                     avatar_url: Optional[str] = None, # Added for UserCreate schema compatibility
+                     biography: Optional[str] = None, # Added for UserCreate schema compatibility
+                     phone: Optional[str] = None, # Added for UserCreate schema compatibility
+                     registration_category: Optional[str] = None # Added for UserCreate schema compatibility
+                    ):
+    driver = await get_neo4j_async_driver()
     async with driver.session() as session:
         query = """
-        MERGE (u:User {userID: $user_id})
-        ON CREATE SET u.fullName = $fullName, u.email = $email,
-                      u.first_name = $first_name, u.lastName = $last_name,
-                      u.biography = $biography, // Set biography on create
-                      u.createdAt = datetime()
-        ON MATCH SET u.fullName = $fullName, u.email = $email,
-                     u.first_name = $first_name, u.lastName = $last_name,
-                     u.biography = $biography, // Update biography on match
-                     u.updatedAt = datetime()
+        CREATE (u:User {
+            userID: $user_id,
+            fullName: $fullName,
+            email: $email,
+            first_name: $first_name,
+            last_name: $last_name,
+            avatar_url: $avatar_url, // Added to Neo4j node
+            biography: $biography, // Added to Neo4j node
+            phone: $phone, // Added to Neo4j node
+            registration_category: $registration_category // Added to Neo4j node
+        })
         RETURN u
         """
         await session.run(query, user_id=user_id, fullName=fullName, email=email,
-                           first_name=first_name, last_name=last_name, biography=biography) # Pass biography
-        print(f"Neo4j: Created/Updated User node for {fullName} (ID: {user_id})")
+                           first_name=first_name, last_name=last_name,
+                           avatar_url=avatar_url, biography=biography, phone=phone,
+                           registration_category=registration_category)
+        print(f"Neo4j: Created User node for {fullName} (ID: {user_id})")
 
 async def create_or_update_user_skill_neo4j(user_id: str, skill_name: str):
-    driver = await get_neo4j_driver()
+    driver = await get_neo4j_async_driver()
     async with driver.session() as session:
         query = """
         MATCH (u:User {userID: $user_id})
@@ -212,7 +225,7 @@ async def create_or_update_user_skill_neo4j(user_id: str, skill_name: str):
         print(f"Neo4j: User {user_id} HAS_SKILL {skill_name}")
 
 async def create_or_update_user_interest_neo4j(user_id: str, interest_name: str):
-    driver = await get_neo4j_driver()
+    driver = await get_neo4j_async_driver()
     async with driver.session() as session:
         query = """
         MATCH (u:User {userID: $user_id})
@@ -226,7 +239,7 @@ async def create_or_update_user_interest_neo4j(user_id: str, interest_name: str)
         print(f"Neo4j: User {user_id} HAS_INTEREST {interest_name}")
 
 async def create_or_update_user_job_role_neo4j(user_id: str, job_role_title: str):
-    driver = await get_neo4j_driver()
+    driver = await get_neo4j_async_driver()
     async with driver.session() as session:
         query = """
         MATCH (u:User {userID: $user_id})
@@ -240,11 +253,9 @@ async def create_or_update_user_job_role_neo4j(user_id: str, job_role_title: str
         print(f"Neo4j: User {user_id} HAS_CURRENT_ROLE {job_role_title}")
 
 async def create_or_update_user_company_neo4j(user_id: str, company_name: str, is_current: bool = True):
-    driver = await get_neo4j_driver()
+    driver = await get_neo4j_async_driver()
     async with driver.session() as session:
         # First, remove any existing CURRENT_WORKS_AT relationships for the user
-        # This ensures only one "current" company, if your logic dictates
-        # This assumes your logic only tracks one current company at a time via this relation
         await session.run(
             """
             MATCH (u:User {userID: $user_id})-[r:WORKS_AT {isCurrent: TRUE}]->(c:Company)
@@ -265,7 +276,7 @@ async def create_or_update_user_company_neo4j(user_id: str, company_name: str, i
         print(f"Neo4j: User {user_id} WORKS_AT {company_name} (isCurrent: {is_current})")
 
 async def update_user_location_neo4j(user_id: str, location_name: str, location_type: str = 'City'):
-    driver = await get_neo4j_driver()
+    driver = await get_neo4j_async_driver()
     async with driver.session() as session:
         # Remove any existing LIVES_IN relationship to maintain a single current location
         await session.run(
@@ -287,6 +298,131 @@ async def update_user_location_neo4j(user_id: str, location_name: str, location_
         await session.run(query, user_id=user_id, location_name=location_name, location_type=location_type)
         print(f"Neo4j: User {user_id} LIVES_IN {location_name}")
 
-# --- Recommendation Queries (FINAL FIXES) ---
+# NEW: Create/update Conference node in Neo4j (maps from conferences table)
+async def create_conference_node_neo4j(
+    conference_id: str, name: str, description: Optional[str],
+    start_date: datetime, end_date: datetime, location_name: Optional[str],
+    organizer_user_id: Optional[str] = None,
+    logo_url: Optional[str] = None,
+    website_url: Optional[str] = None
+):
+    driver = await get_neo4j_async_driver()
+    async with driver.session() as session:
+        query = """
+        MERGE (c:Conference {conferenceID: $conference_id})
+        ON CREATE SET
+            c.name = $name,
+            c.description = $description,
+            c.start_date = $start_date,
+            c.end_date = $end_date,
+            c.location = $location_name,
+            c.logo_url = $logo_url,
+            c.website_url = $website_url
+        ON MATCH SET // Update existing properties if the node already exists
+            c.name = $name,
+            c.description = $description,
+            c.start_date = $start_date,
+            c.end_date = $end_date,
+            c.location = $location_name,
+            c.logo_url = $logo_url,
+            c.website_url = $website_url
+        """
+        params = {
+            "conference_id": conference_id, "name": name, "description": description,
+            "start_date": start_date, "end_date": end_date, "location_name": location_name,
+            "organizer_user_id": organizer_user_id, "logo_url": logo_url, "website_url": website_url
+        }
+        if organizer_user_id:
+            query += " MERGE (o:User {userID: $organizer_user_id}) MERGE (o)-[:ORGANIZES]->(c)"
+        
+        await session.run(query, params)
+        print(f"Neo4j: Created/Updated Conference node for {name} (ID: {conference_id})")
 
-#
+# NEW: Create/update Event (component) node in Neo4j and link to Conference
+async def create_event_node_neo4j( # Renamed from create_session_node_neo4j
+    event_id: str, conference_id: str, title: str, event_type: str, # Renamed session_id to event_id, session_type to event_type
+    start_time: datetime, end_time: datetime, location_name: Optional[str] = None
+):
+    driver = await get_neo4j_async_driver()
+    async with driver.session() as session:
+        query = """
+        MATCH (conf:Conference {conferenceID: $conference_id})
+        MERGE (e:Event {eventID: $event_id}) # Changed s:Session to e:Event
+        ON CREATE SET
+            e.title = $title,
+            e.type = $event_type, # Use event_type
+            e.start_time = $start_time,
+            e.end_time = $end_time,
+            e.location = $location_name
+        ON MATCH SET
+            e.title = $title,
+            e.type = $event_type,
+            e.start_time = $start_time,
+            e.end_time = $end_time,
+            e.location = $location_name
+        MERGE (conf)-[:HAS_EVENT]->(e) # Changed HAS_SESSION to HAS_EVENT
+        RETURN e
+        """
+        await session.run(query, {
+            "event_id": event_id, "conference_id": conference_id, "title": title,
+            "event_type": event_type, "start_time": start_time, "end_time": end_time,
+            "location_name": location_name
+        })
+        print(f"Neo4j: Created/Updated Event node {title} (ID: {event_id}) for Conference {conference_id}")
+
+# NEW: Create User-Event (component) attendance relationship
+async def create_user_event_attendance_neo4j(user_id: str, event_id: str, attendance_status: str, attended_at: datetime):
+    driver = await get_neo4j_async_driver()
+    async with driver.session() as session:
+        query = """
+        MATCH (u:User {userID: $user_id})
+        MATCH (e:Event {eventID: $event_id}) # Changed s:Session to e:Event
+        MERGE (u)-[r:ATTENDS {status: $status, attended_at: $attended_at}]->(e)
+        ON CREATE SET r.assigned_at = datetime()
+        ON MATCH SET r.updated_at = datetime()
+        RETURN u, r, e
+        """
+        await session.run(query, user_id=user_id, event_id=event_id, status=attendance_status, attended_at=attended_at)
+        print(f"Neo4j: User {user_id} ATTENDS Event {event_id} (Status: {attendance_status})")
+
+# NEW: Create Presenter-Event link
+async def create_presenter_event_link_neo4j(presenter_user_id: str, event_id: str):
+    driver = await get_neo4j_async_driver()
+    async with driver.session() as session:
+        query = """
+        MATCH (u:User {userID: $presenter_user_id})
+        MATCH (e:Event {eventID: $event_id}) # Changed s:Session to e:Event
+        MERGE (u)-[:PRESENTS_AT]->(e)
+        RETURN u,s
+        """
+        await session.run(query, presenter_user_id=presenter_user_id, event_id=event_id)
+        print(f"Neo4j: User {presenter_user_id} assigned as presenter for Event {event_id}")
+
+# NEW: Create Exhibitor-Event link
+async def create_exhibitor_event_link_neo4j(exhibitor_user_id: str, event_id: str):
+    driver = await get_neo4j_async_driver()
+    async with driver.session() as session:
+        query = """
+        MATCH (u:User {userID: $exhibitor_user_id})
+        MATCH (e:Event {eventID: $event_id}) # Changed s:Session to e:Event
+        WHERE e.type = 'exhibition'
+        MERGE (u)-[:EXHIBITS_AT]->(e)
+        RETURN u,s
+        """
+        await session.run(query, exhibitor_user_id=exhibitor_user_id, event_id=event_id)
+        print(f"Neo4j: User {exhibitor_user_id} assigned as exhibitor for Event {event_id}")
+
+# NEW: Create User-Conference registration relationship (uses conferenceID and reg_id)
+async def create_user_conference_registration_neo4j(user_id: str, conference_id: str, reg_id: str):
+    driver = await get_neo4j_async_driver()
+    async with driver.session() as session:
+        query = """
+        MATCH (u:User {userID: $user_id})
+        MATCH (c:Conference {conferenceID: $conference_id})
+        MERGE (u)-[r:REGISTERED_FOR {regId: $reg_id}]->(c)
+        ON CREATE SET r.registered_at = datetime()
+        ON MATCH SET r.updated_at = datetime()
+        RETURN u, r, c
+        """
+        await session.run(query, user_id=user_id, conference_id=conference_id, reg_id=reg_id)
+        print(f"Neo4j: User {user_id} REGISTERED_FOR Conference {conference_id} (Reg ID: {reg_id})")

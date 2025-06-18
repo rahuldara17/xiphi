@@ -24,7 +24,7 @@ from app.db.neo4j import (
     create_or_update_user_job_role_neo4j,
     create_or_update_user_company_neo4j,
     update_user_location_neo4j,
-    get_neo4j_driver # Used to get the driver if self.neo4j_driver is None
+    get_neo4j_async_driver # Used to get the driver if self.neo4j_driver is None
 )
 
 # Import entity normalization functions

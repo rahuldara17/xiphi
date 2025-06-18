@@ -13,8 +13,9 @@ import uuid
 # Import ALL your ASYNC Neo4j CRUD functions
 from app.db.neo4j import (
     create_user_node, create_or_update_user_skill_neo4j,
-    create_or_update_user_interest_neo4j, create_or_update_user_job_role_neo4j,
-    create_or_update_user_company_neo4j, update_user_location_neo4j, get_neo4j_driver
+    create_or_update_user_interest_neo4j, create_or_update_user_job_role_neo4j,get_neo4j_async_driver,
+    create_or_update_user_company_neo4j, update_user_location_neo4j,
+    create_user_conference_registration_neo4j # NEW IMPORT for registration g
 )
 
 # Import the entity normalization functions from process.py
@@ -31,27 +32,21 @@ from services.services.person_service import PeopleService
 router = APIRouter()
 
 async def get_people_service_dependency(db: AsyncSession = Depends(get_db)):
-    neo4j_driver_instance = await get_neo4j_driver()
+    neo4j_driver_instance = await get_neo4j_async_driver()
     return PeopleService(db=db, neo4j_driver_async=neo4j_driver_instance)
 
 
 # --- User CRUD Endpoints ---
 
 @router.post("/", response_model=UserRead)
-async def create_user(user_create_payload: UserCreate, db: AsyncSession = Depends(get_db)): # Renamed parameter for clarity
-    # Import main module inside the function to avoid circular dependency
-    # This is only needed if you want to increment the counter even for basic user creation.
-    # If not, you can remove this import from here.
-    import main as main_app_module 
-
-    # 1. Check for existing user
+async def create_user(user_create_payload: UserCreate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).filter(User.email == user_create_payload.email))
     existing_user = result.scalars().first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # 2. Create new User in Postgres
     new_user_uuid = uuid.uuid4()
+    # Create Postgres User
     new_user = User(
         user_id=new_user_uuid,
         email=user_create_payload.email,
@@ -62,15 +57,16 @@ async def create_user(user_create_payload: UserCreate, db: AsyncSession = Depend
         biography=user_create_payload.biography,
         phone=user_create_payload.phone,
         # Ensure RegistrationCategory enum is handled correctly (use .value)
-        registration_category=user_create_payload.registration_category.value
+        registration_category=user_create_payload.registration_category.value,
+        reg_id=user_create_payload.reg_id, # Store reg_id in Postgres User table
+         conference_id=uuid.UUID(user_create_payload.reg_id) if user_create_payload.reg_id else None
     )
 
     db.add(new_user)
-    # Commit the new user now so its ID is available for relationships
     await db.commit()
     await db.refresh(new_user)
 
-    # 3. Create User node in Neo4j
+    # Call Neo4j node creation
     await create_user_node(
         user_id=str(new_user.user_id),
         fullName=f"{new_user.first_name} {new_user.last_name}",
@@ -79,18 +75,48 @@ async def create_user(user_create_payload: UserCreate, db: AsyncSession = Depend
         last_name=new_user.last_name
     )
 
-    # --- REVERTED: Removed all logic for user_skills, user_interests, etc. during creation ---
-    # These fields are NOT part of the UserCreate schema.
-    # User will need to update skills, interests, etc. via the /update endpoint.
+    # Create Neo4j conference registration relationship if reg_id is provided
+    if user_create_payload.reg_id: # reg_id is implicitly conference_id
+        # Verify Conference node exists in Postgres for this reg_id/conference_id
+        pg_conf_result = await db.execute(select(PgConference).filter(PgConference.conference_id == UUID(user_create_payload.reg_id)))
+        pg_conf = pg_conf_result.scalars().first()
+        if not pg_conf:
+            print(f"Warning: Conference {user_create_payload.reg_id} not found in Postgres. Cannot link user to conference in Neo4j.")
+        else:
+            await create_user_conference_registration_neo4j(
+                user_id=str(new_user.user_id),
+                conference_id=str(pg_conf.conference_id), # Use Postgres conference_id (which is reg_id)
+                reg_id=user_create_payload.reg_id # Use the reg_id as the property on relation
+            )
 
-    # Only increment the counter for the basic user creation if it counts as a profile update
-    # Otherwise, remove this line too.
-    await main_app_module.increment_profile_update_count_in_memory()
+    # --- Initial connections based on UserCreate payload ---
+    # These remain as they were in the previous version
+    if hasattr(user_create_payload, 'user_skills') and user_create_payload.user_skills:
+        for skill_name in user_create_payload.user_skills:
+            skill_info = await find_closest_skill_id(db, skill_name)
+            if skill_info:
+                await db.merge(UserSkill(user_id=new_user_uuid, skill_interest_id=skill_info["skill_interest_id"]))
+                await create_or_update_user_skill_neo4j(str(new_user_uuid), skill_info["name"])
+
+    if hasattr(user_create_payload, 'user_interests') and user_create_payload.user_interests:
+        for interest_name in user_create_payload.user_interests:
+            await create_or_update_user_interest_neo4j(str(new_user_uuid), interest_name)
+
+    if hasattr(user_create_payload, 'current_job_role_title') and user_create_payload.current_job_role_title:
+        await create_or_update_user_job_role_neo4j(str(new_user_uuid), user_create_payload.current_job_role_title)
     
-    # No further commits needed here as basic user is already committed
-    return new_user
+    if hasattr(user_create_payload, 'current_company_name') and user_create_payload.current_company_name:
+        await create_or_update_user_company_neo4j(str(new_user_uuid), user_create_payload.current_company_name)
 
+    if hasattr(user_create_payload, 'current_location_name') and user_create_payload.current_location_name:
+        await update_user_location_neo4j(str(new_user_uuid), user_create_payload.current_location_name)
 
+    # Ensure UserRead returns reg_id and conference_id
+    new_user_read_response = UserRead.from_orm(new_user)
+    new_user_read_response.reg_id = user_create_payload.reg_id
+    new_user_read_response.conference_id = user_create_payload.reg_id # Set conference_id for response
+
+    return new_user_read_response
 @router.post("/update")
 async def update_user_data(payload: UserUpdateSchema, db: AsyncSession = Depends(get_db)):
     user_id = str(payload.user_id)
@@ -174,15 +200,15 @@ async def update_user_data(payload: UserUpdateSchema, db: AsyncSession = Depends
 
     return {"msg": "User update successful"}
 
-@router.get("/recommendations/demographics/{user_id}", response_model=Dict[str, Any])
+""" @router.get("/recommendations/demographics/{user_id}", response_model=Dict[str, Any])
 async def get_demographics_recommendations_api(
     user_id: str,
     people_service: PeopleService = Depends(get_people_service_dependency)
 ):
-    """
+
     Fetches people recommendations based primarily on demographic similarity
     (company, location, university).
-    """
+
     try:
         recommendations = await people_service.get_demographics_based_recommendations(user_id, limit=5)
         return {
@@ -192,15 +218,13 @@ async def get_demographics_recommendations_api(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching demographics recommendations: {e}")
-
+ 
 @router.get("/recommendations/interests/{user_id}", response_model=Dict[str, Any])
 async def get_interests_recommendations_api(
     user_id: str,
     people_service: PeopleService = Depends(get_people_service_dependency)
 ):
-    """
-    Fetches people recommendations based on shared interests.
-    """
+    
     try:
         recommendations = await people_service.get_similar_interests_recommendations(user_id, limit=5)
         return {
@@ -216,9 +240,7 @@ async def get_skills_recommendations_api(
     user_id: str,
     people_service: PeopleService = Depends(get_people_service_dependency)
 ):
-    """
-    Fetches people recommendations based on shared skills.
-    """
+    
     try:
         recommendations = await people_service.get_similar_skills_recommendations(user_id, limit=5)
         return {
@@ -230,9 +252,9 @@ async def get_skills_recommendations_api(
         raise HTTPException(status_code=500, detail=f"Error fetching skills recommendations: {e}")
     
 #ajfadlfad
-
-@router.get("/recommendations/unified/{user_id}", response_model=Dict[str, Any])
-async def get_unified_recommendations_api(
+"""
+@router.get("/recommendations/reg_id/{user_id}", response_model=Dict[str, Any])
+async def get_recommendations_attendee(
     user_id: str,
     limit: int = 100, # Allow a higher limit for the unified list
     people_service: PeopleService = Depends(get_people_service_dependency)

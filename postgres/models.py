@@ -9,9 +9,11 @@ from sqlalchemy import (
     Boolean,
 )
 from sqlalchemy.orm import relationship, declarative_base
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import UUID,ARRAY
+from sqlalchemy.sql import func,text
 from pgvector.sqlalchemy import Vector
+
+ 
 
 import uuid
 import enum
@@ -29,12 +31,14 @@ class RegistrationCategory(enum.Enum):
     exhibitor = "exhibitor"
     presenter = "presenter"
 
+# FIX: Removed 'conference' from EventType Enum
 class EventType(enum.Enum):
     presentation = "presentation"
     exhibition = "exhibition"
     workshop = "workshop"
     panel = "panel"
     keynote = "keynote"
+    concert = "concert"
 
 class ConnectionStatus(enum.Enum):
     pending = "pending"
@@ -168,11 +172,10 @@ class User(Base):
     password_hash = Column(Text, nullable=False)
     first_name = Column(Text, nullable=False)
     last_name = Column(Text, nullable=False)
-    avatar_url = Column(Text)
-    biography = Column(Text)
-    phone = Column(Text)
-
-    # ← Fix: explicitly reference Python enum + give the DB-type a name
+    avatar_url = Column(Text, nullable=True)
+    biography = Column(Text, nullable=True)
+    phone = Column(Text, nullable=True)
+    reg_id = Column(String(255), nullable=False, unique=True)
     registration_category = Column(
         Enum(
             RegistrationCategory,
@@ -180,6 +183,13 @@ class User(Base):
         ),
         nullable=False,
         default=RegistrationCategory.attendee
+    )
+
+    # FIX: Add conference_id to User model in Postgres
+    conference_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey('conferences.conference_id', ondelete='SET NULL'),
+        nullable=True # Set nullable=True if a user might not be linked to a conference immediately
     )
 
     job_role = relationship("UserJobRole", backref="user")
@@ -489,7 +499,7 @@ class Event(Base):
 
     # ← Fix: use Python EventType enum + name
     event_type = Column(
-        Enum(EventType, name="eventtype_enum"),
+        Enum(EventType, name="event_type"),
         nullable=False
     )
 
