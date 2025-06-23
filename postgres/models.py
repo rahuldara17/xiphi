@@ -1,3 +1,5 @@
+# postgres/models.py
+
 from sqlalchemy import (
     Column,
     String,
@@ -5,19 +7,21 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
-    Enum,
+    Enum, # For SQLAlchemy Enum type
     Boolean,
 )
 from sqlalchemy.orm import relationship, declarative_base
-from sqlalchemy.dialects.postgresql import UUID,ARRAY
-from sqlalchemy.sql import func,text
-from pgvector.sqlalchemy import Vector
-
- 
-
+from sqlalchemy.dialects.postgresql import UUID, ARRAY # ARRAY for generic Python arrays, if you use it
+from sqlalchemy.sql import func, text
+from pgvector.sqlalchemy import Vector # For vector type
 import uuid
-import enum
-import datetime
+import enum # For Python's enum.Enum
+import datetime # For datetime.datetime and datetime.timezone
+
+# No need for from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+# just use UUID if it's from sqlalchemy.dialects.postgresql
+# If you used PG_UUID in other files, ensure consistency.
+# Here, directly using UUID from sqlalchemy.dialects.postgresql should be fine.
 
 Base = declarative_base()
 
@@ -31,7 +35,6 @@ class RegistrationCategory(enum.Enum):
     exhibitor = "exhibitor"
     presenter = "presenter"
 
-# FIX: Removed 'conference' from EventType Enum
 class EventType(enum.Enum):
     presentation = "presentation"
     exhibition = "exhibition"
@@ -78,7 +81,7 @@ class JobRole(Base):
         default=uuid.uuid4
     )
     name = Column(String(255), nullable=False, unique=True)
-    embedding = Column(Vector(384))
+    embedding = Column(Vector(384), nullable=True) # Assuming nullable=True for new column
     valid_from = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -100,7 +103,8 @@ class Company(Base):
         default=uuid.uuid4
     )
     name = Column(String(255), nullable=False, unique=True)
-    embedding = Column(Vector(384))
+    type =Column(String(255),nullable=False,unique=True)
+    embedding = Column(Vector(384), nullable=True) # Assuming nullable=True for new column
     valid_from = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -172,10 +176,10 @@ class User(Base):
     password_hash = Column(Text, nullable=False)
     first_name = Column(Text, nullable=False)
     last_name = Column(Text, nullable=False)
-    avatar_url = Column(Text, nullable=True)
-    biography = Column(Text, nullable=True)
-    phone = Column(Text, nullable=True)
-    reg_id = Column(String(255), nullable=False, unique=True)
+    avatar_url = Column(Text)
+    biography = Column(Text)
+    phone = Column(Text)
+    reg_id = Column(String(255), nullable=True, unique=False) # reg_id is here as well
     registration_category = Column(
         Enum(
             RegistrationCategory,
@@ -185,15 +189,11 @@ class User(Base):
         default=RegistrationCategory.attendee
     )
 
-    # FIX: Add conference_id to User model in Postgres
-    conference_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey('conferences.conference_id', ondelete='SET NULL'),
-        nullable=True # Set nullable=True if a user might not be linked to a conference immediately
-    )
-
     job_role = relationship("UserJobRole", backref="user")
-    company = relationship("UserCompany", backref="user")
+    current_company = relationship("UserCompany", backref="user")
+    
+    # Assuming location_associations relationship will be added by UserLocation backref
+    # location_associations = relationship("UserLocation", backref="user") # Can define explicitly here if preferred
 
     @property
     def current_job_role(self):
@@ -211,6 +211,44 @@ class User(Base):
             None
         )
 
+
+class UserRegistration(Base):
+    __tablename__ = "user_registrations"
+
+    # reg_id is the Primary Key as per our final agreement and your existing table structure
+    reg_id = Column(String(255), primary_key=True, nullable=False) # FIX: Removed redundant unique=True
+
+    # user_id (attendee_user_id in our discussions) MUST BE NULLABLE INITIALLY
+    # It's only populated when the user claims the reg_id.
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    conference_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conferences.conference_id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    # Renamed/Added timestamp columns as per our schema
+    registered_by_organizer_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    claimed_by_user_at = Column(DateTime(timezone=True), nullable=True) # Null until user claims it
+
+    # Added status column
+    status = Column(String(50), nullable=False, default="pre_registered") # e.g., 'pre_registered', 'claimed', 'cancelled'
+
+    # valid_from and valid_to with your specified defaults and nullable=False
+    valid_from = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    valid_to = Column(DateTime(timezone=True), nullable=False, server_default=text("'infinity'"))
+
+    # Relationships
+    user = relationship("User", backref="registrations_link")
+    conference = relationship("Conference", backref="user_registrations")
+
+    def __repr__(self):
+        return f"<UserRegistration(reg_id='{self.reg_id}', conference_id='{self.conference_id}', user_id='{self.user_id}', status='{self.status}')>"
 
 class Tag(Base):
     __tablename__ = "tags"
@@ -238,12 +276,12 @@ class UserTag(Base):
 
     user_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.user_id"),
+        ForeignKey("users.user_id", ondelete="CASCADE"), # Added ondelete
         primary_key=True
     )
     tag_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("tags.tag_id"),
+        ForeignKey("tags.tag_id", ondelete="CASCADE"), # Added ondelete
         primary_key=True
     )
     valid_from = Column(
@@ -418,6 +456,10 @@ class UserCompany(Base):
     )
 
 
+# postgres/models.py
+
+# ... (other imports and models remain unchanged) ...
+
 class Conference(Base):
     __tablename__ = "conferences"
 
@@ -430,14 +472,60 @@ class Conference(Base):
     description = Column(Text)
     start_date = Column(DateTime(timezone=True), nullable=False)
     end_date = Column(DateTime(timezone=True), nullable=False)
-    location = Column(Text)
+    
+    # --- CHANGE THIS LINE ---
+    # location = Column(Text) # <--- REMOVE THIS
+    # --- ADD THIS LINE INSTEAD ---
+    location_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("locations.location_id", ondelete="SET NULL"), # Link to the canonical Location entity
+        nullable=True # Set to True if a conference can exist without a linked location, or be explicit.
+    )
+
     venue_details = Column(Text)
     logo_url = Column(Text)
     website_url = Column(Text)
     organizer_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.user_id")
+        ForeignKey("users.user_id", ondelete="SET NULL")
     )
+    valid_from = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now()
+    )
+    valid_to = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default="infinity"
+    )
+    
+      # --- ADD THIS RELATIONSHIP ---
+    # This links the Conference ORM object to its Location ORM object
+    location_rel = relationship("Location", backref="conferences") 
+
+    # --- ADD THIS PROPERTY ---
+    # This property will be accessed by Pydantic's .from_orm()
+    @property
+    def location_name(self):
+        # Access the name from the linked Location object
+        # It relies on the 'location_rel' relationship being loaded
+        return self.location_rel.name if self.location_rel else None
+
+# ... (rest of your models remain unchanged) ...
+class Location(Base): # <--- This is where the embedding column needs to be added
+    __tablename__ = "locations"
+
+    location_id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    name = Column(Text, nullable=False, unique=True) # Changed to unique=True as discussed. Text is fine.
+    address = Column(Text)
+    # ADD EMBEDDING COLUMN HERE
+    embedding = Column(Vector(384), nullable=True) # ADDED THIS COLUMN, assuming nullable=True
+
     valid_from = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -450,16 +538,24 @@ class Conference(Base):
     )
 
 
-class Location(Base):
-    __tablename__ = "locations"
-
+class UserLocation(Base): # <--- NEW TABLE ADDED
+    __tablename__ = "user_location"
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        primary_key=True
+    )
     location_id = Column(
         UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4
+        ForeignKey("locations.location_id", ondelete="CASCADE"),
+        primary_key=True
     )
-    name = Column(Text, nullable=False)
-    address = Column(Text)
+    assigned_at = Column(
+        DateTime(timezone=True),
+        primary_key=True,
+        nullable=False,
+        server_default=func.now()
+    )
     valid_from = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -492,26 +588,22 @@ class Event(Base):
     )
     conference_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("conferences.conference_id")
+        ForeignKey("conferences.conference_id", ondelete="CASCADE") # Added ondelete
     )
     title = Column(Text, nullable=False)
     description = Column(Text)
 
-    # ← Fix: use Python EventType enum + name
     event_type = Column(
-        Enum(EventType, name="event_type"),
+        Enum(EventType, name="event_type"), # Name matches ENUM name
         nullable=False
     )
-
-    location_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("locations.location_id")
-    )
+    venue_details = Column(Text)
+    
     start_time = Column(DateTime(timezone=True), nullable=False)
     end_time = Column(DateTime(timezone=True), nullable=False)
     organizer_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.user_id")
+        ForeignKey("users.user_id", ondelete="SET NULL") # Added ondelete
     )
 
 
@@ -520,18 +612,17 @@ class EventAttendance(Base):
 
     user_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.user_id"),
+        ForeignKey("users.user_id", ondelete="CASCADE"), # Added ondelete
         primary_key=True
     )
     event_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("events.event_id"),
+        ForeignKey("events.event_id", ondelete="CASCADE"), # Added ondelete
         primary_key=True
     )
 
-    # ← Fix: use Python AttendanceStatus enum + name
     attendance_status = Column(
-        Enum(AttendanceStatus, name="attendancestatus_enum"),
+        Enum(AttendanceStatus, name="attendancestatus_enum"), # Name matches ENUM name
         nullable=False
     )
 
@@ -558,18 +649,17 @@ class Connection(Base):
     )
     requester_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.user_id"),
+        ForeignKey("users.user_id", ondelete="CASCADE"), # Added ondelete
         nullable=False
     )
     requestee_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.user_id"),
+        ForeignKey("users.user_id", ondelete="CASCADE"), # Added ondelete
         nullable=False
     )
 
-    # ← Fix: use Python ConnectionStatus enum + name
     status = Column(
-        Enum(ConnectionStatus, name="connectionstatus_enum"),
+        Enum(ConnectionStatus, name="connectionstatus_enum"), # Name matches ENUM name
         nullable=False,
         default=ConnectionStatus.pending
     )
@@ -592,12 +682,12 @@ class Message(Base):
     )
     sender_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.user_id"),
+        ForeignKey("users.user_id", ondelete="CASCADE"), # Added ondelete
         nullable=False
     )
     receiver_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.user_id"),
+        ForeignKey("users.user_id", ondelete="CASCADE"), # Added ondelete
         nullable=False
     )
     content = Column(Text, nullable=False)
@@ -607,9 +697,8 @@ class Message(Base):
         server_default=func.now()
     )
 
-    # ← Fix: use Python MessageDirection enum + name
     direction = Column(
-        Enum(MessageDirection, name="messagedirection_enum"),
+        Enum(MessageDirection, name="messagedirection_enum"), # Name matches ENUM name
         nullable=False
     )
 
@@ -624,13 +713,12 @@ class Notification(Base):
     )
     user_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.user_id"),
+        ForeignKey("users.user_id", ondelete="CASCADE"), # Added ondelete
         nullable=False
     )
 
-    # ← Fix: use Python NotificationType enum + name
     notification_type = Column(
-        Enum(NotificationType, name="notificationtype_enum"),
+        Enum(NotificationType, name="notificationtype_enum"), # Name matches ENUM name
         nullable=False
     )
 
@@ -658,9 +746,8 @@ class Content(Base):
     title = Column(Text, nullable=False)
     body = Column(Text, nullable=False)
 
-    # ← Fix: use Python ContentType enum + name
     content_type = Column(
-        Enum(ContentType, name="contenttype_enum"),
+        Enum(ContentType, name="contenttype_enum"), # Name matches ENUM name
         nullable=False
     )
 
@@ -677,12 +764,12 @@ class UserContentInteraction(Base):
 
     user_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.user_id"),
+        ForeignKey("users.user_id", ondelete="CASCADE"), # Added ondelete
         primary_key=True
     )
     content_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("content.content_id"),
+        ForeignKey("content.content_id", ondelete="CASCADE"), # Added ondelete
         primary_key=True
     )
     liked = Column(

@@ -1,20 +1,19 @@
-# app/db/neo4j.py
+
 
 import os
 import asyncio
-from neo4j import AsyncGraphDatabase, GraphDatabase # Use AsyncGraphDatabase for main ops, GraphDatabase for GDS's internal needs
-from graphdatascience import GraphDataScience # GDS client
+from neo4j import AsyncGraphDatabase, GraphDatabase
+from graphdatascience import GraphDataScience
 
 from app.core.config import settings
-from typing import List, Dict, Any, Optional # Added Dict, Any for broader type hinting
-from datetime import datetime # Ensure datetime is imported for date types
-from uuid import UUID # Ensure UUID is imported for type hints
+from typing import List, Dict, Any, Optional # Ensure Optional is imported
+from datetime import datetime
+from uuid import UUID # Ensure UUID is imported
 
 # --- GLOBAL DRIVER INSTANCES ---
-_neo4j_async_driver_instance = None # The async driver instance for general CRUD
-_neo4j_sync_driver_for_gds_instance = None # A separate sync driver instance specifically for GDS
-gds = None # Global GDS client instance
-
+_neo4j_async_driver_instance = None
+_neo4j_sync_driver_for_gds_instance = None
+gds = None
 
 async def get_neo4j_async_driver():
     """Returns the Neo4j ASYNC driver instance, initializing if not already."""
@@ -42,64 +41,81 @@ async def close_neo4j_driver():
         _neo4j_sync_driver_for_gds_instance = None
         print("Neo4j GDS sync driver closed.")
 
-
 # --- GDS Graph Names (Constants) ---
 DEMO_GRAPH_NAME = "user_demographics_graph"
 INTEREST_GRAPH_NAME = "user_interest_graph"
 SKILL_GRAPH_NAME = "user_skill_graph"
 
-
 async def initialize_gds():
     """
     Initializes the GDS client.
-    This function no longer projects graphs directly; projection is part of refresh_gds_graphs_and_similarities.
+    This function no longer projects graphs; projection is handled by refresh_gds_graphs_and_similarities.
     """
     global gds, _neo4j_sync_driver_for_gds_instance
-    
-    # Create/get the SYNCHRONOUS driver instance explicitly for GDS.
     if _neo4j_sync_driver_for_gds_instance is None:
         _neo4j_sync_driver_for_gds_instance = GraphDatabase.driver(settings.NEO4J_URI, auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD))
         _neo4j_sync_driver_for_gds_instance.verify_connectivity()
         print("Neo4j GDS sync driver initialized successfully!")
-    
     gds = GraphDataScience(_neo4j_sync_driver_for_gds_instance)
-    print("GDS client initialized.")
 
+    print("Initializing GDS graph projections...")
 
-# app/db/neo4j.py (inside the _try_project_gds_graph function)
+    # GDS projections: No longer include these properties on User node
+    await _try_project_gds_graph(
+        DEMO_GRAPH_NAME,
+        ['User', 'Company', 'Location', 'University', 'Conference', 'Event'], 
+        {
+            'WORKS_AT': {'orientation': 'UNDIRECTED'},
+            'WORKED_AT': {'orientation': 'UNDIRECTED'},
+            'LIVES_IN': {'orientation': 'UNDIRECTED'},
+            'STUDIED_AT': {'orientation': 'UNDIRECTED'},
+            'REGISTERED_FOR': {'orientation': 'UNDIRECTED'},
+            'ATTENDS': {'orientation': 'UNDIRECTED'}, 
+            'HAS_EVENT': {'orientation': 'UNDIRECTED'},
+            'ORGANIZES': {'orientation': 'UNDIRECTED'}
+            'EXHIBITS_AT': {'orientation': 'UNDIRECTED'}, 
+            'PRESENTS_AT': {'orientation': 'UNDIRECTED'} 
+        }
+    )
+    await _try_project_gds_graph(
+        INTEREST_GRAPH_NAME,
+        ['User', 'Interest'],
+        {
+            'HAS_INTEREST': {'orientation': 'UNDIRECTED'},
+            'DESIRES_INDUSTRY': {'orientation': 'UNDIRECTED'}
+        }
+    )
+    await _try_project_gds_graph(
+        SKILL_GRAPH_NAME,
+        ['User', 'Skill'],
+        {
+            'HAS_SKILL': {'orientation': 'UNDIRECTED'}
+        }
+    )
+    print("All GDS graphs projected successfully.")
 
-# ... (other code) ...
-
-async def _try_project_gds_graph(graph_name: str, node_labels: List[str], relationship_types: Dict[str, Dict[str, str]]):
-    """Helper to drop and project a GDS graph, wrapping sync GDS calls in to_thread."""
+async def _try_project_gds_graph(graph_name, node_labels, relationship_types):
     try:
         print(f"Dropping existing GDS graph '{graph_name}'...")
-        # *** FIX IS HERE ***
-        # REMOVE 'failIfDoesNotExist=False' from the line below.
         try:
-            await asyncio.to_thread(gds.graph.drop, graph_name) # <--- THIS IS THE LINE (remove the argument)
+            await asyncio.to_thread(gds.graph.drop, graph_name)
         except Exception as e:
-            # This handles the "does not exist" error gracefully if the graph wasn't there
             if "does not exist" in str(e).lower() or "no graph exists" in str(e).lower():
                 print(f"Graph '{graph_name}' did not exist, so no need to drop. Proceeding.")
             else:
-                # If it's another error during drop, re-raise it.
                 print(f"Error during GDS graph drop for '{graph_name}': {e}")
                 raise
-        
         print(f"Projecting GDS graph '{graph_name}'...")
         await asyncio.to_thread(gds.graph.project, graph_name, node_labels, relationship_types)
         print(f"GDS graph '{graph_name}' projected successfully.")
     except Exception as e:
         print(f"Error during GDS graph projection for '{graph_name}': {e}")
-        raise # Re-raise the exception to propagate the error and indicate startup failure.
+        raise
 
-# ... (rest of the file) ...
-# --- NEW: Function to refresh GDS graphs and similarities ---
 async def refresh_gds_graphs_and_similarities():
     """
     Orchestrates the dropping, re-projecting, and re-computing of all GDS graphs and similarities.
-    This function is called on startup and can be called by background tasks.
+    This function is intended to be called by the background task based on defined criteria.
     """
     global gds
 
@@ -119,15 +135,15 @@ async def refresh_gds_graphs_and_similarities():
         ['User', 'Company', 'Location', 'University', 'Conference', 'Event'], # Added Conference, Event (component)
         {
             'WORKS_AT': {'orientation': 'UNDIRECTED'},
-            #'WORKED_AT': {'orientation': 'UNDIRECTED'},
-            #'LIVES_IN': {'orientation': 'UNDIRECTED'},
+            'WORKED_AT': {'orientation': 'UNDIRECTED'},
+            'LIVES_IN': {'orientation': 'UNDIRECTED'},
             'STUDIED_AT': {'orientation': 'UNDIRECTED'},
-            #'REGISTERED_FOR': {'orientation': 'UNDIRECTED'}, # User registered for Conference
+            'REGISTERED_FOR': {'orientation': 'UNDIRECTED'}, # User registered for Conference
             'ATTENDS': {'orientation': 'UNDIRECTED'}, # User attends Event (component)
             'HAS_EVENT': {'orientation': 'UNDIRECTED'}, # Conference has Event (component)
-            #'ORGANIZES': {'orientation': 'UNDIRECTED'}, # Organizer User to Conference
-            #'EXHIBITS_AT': {'orientation': 'UNDIRECTED'}, # Exhibitor User to Event (component, like exhibition)
-            #'PRESENTS_AT': {'orientation': 'UNDIRECTED'} # Presenter User to Event (component)
+            'ORGANIZES': {'orientation': 'UNDIRECTED'}, # Organizer User to Conference
+            'EXHIBITS_AT': {'orientation': 'UNDIRECTED'}, # Exhibitor User to Event (component, like exhibition)
+            'PRESENTS_AT': {'orientation': 'UNDIRECTED'} # Presenter User to Event (component)
         }
     )
 
@@ -157,44 +173,59 @@ async def refresh_gds_graphs_and_similarities():
         interest_graph = await asyncio.to_thread(gds.graph.get, INTEREST_GRAPH_NAME)
         skill_graph = await asyncio.to_thread(gds.graph.get, SKILL_GRAPH_NAME)
     except Exception as e:
-        print(f"Failed to retrieve projected graphs before similarity computation: {e}")
+        print(f"Failed to retrieve projected graphs: {e}")
         raise
 
-    # Helper to abstract similarity computation for reusability
-    async def _compute_similarity(graph: Any, relationship_type: str, property_name: str):
-        try:
-            await asyncio.to_thread(gds.nodeSimilarity.write,
-                graph,
-                writeRelationshipType=relationship_type,
-                writeProperty=property_name,
-                topK=50,
-                similarityCutoff=0.0
-            )
-            print(f"{relationship_type} calculation complete.")
-        except Exception as e:
-            print(f"Error computing {relationship_type}: {e}")
-            raise
-
+    # 1. Compute Demographics Similarity
     try:
-        await _compute_similarity(demo_graph, 'SIMILAR_DEMO', 'score')
-        await _compute_similarity(interest_graph, 'SIMILAR_INTEREST', 'score')
-        await _compute_similarity(skill_graph, 'SIMILAR_SKILL', 'score')
-        print("All GDS similarities computed.")
+        await asyncio.to_thread(gds.nodeSimilarity.write,
+            demo_graph,
+            writeRelationshipType='SIMILAR_DEMO',
+            writeProperty='score',
+            topK=50,
+            similarityCutoff=0.0
+        )
+        print("SIMILAR_DEMO calculation complete.")
     except Exception as e:
-        print(f"An error occurred during similarity computation: {e}")
-        raise
+        print(f"Error computing SIMILAR_DEMO: {e}")
 
-    print("Full GDS refresh process completed.")
+    # 2. Compute Interests Similarity
+    try:
+        await asyncio.to_thread(gds.nodeSimilarity.write,
+            interest_graph,
+            writeRelationshipType='SIMILAR_INTEREST',
+            writeProperty='score',
+            topK=50,
+            similarityCutoff=0.0
+        )
+        print("SIMILAR_INTEREST calculation complete.")
+    except Exception as e:
+        print(f"Error computing SIMILAR_INTEREST: {e}")
+
+    # 3. Compute Skills Similarity
+    try:
+        await asyncio.to_thread(gds.nodeSimilarity.write,
+            skill_graph,
+            writeRelationshipType='SIMILAR_SKILL',
+            writeProperty='score',
+            topK=50,
+            similarityCutoff=0.0
+        )
+        print("SIMILAR_SKILL calculation complete.")
+    except Exception as e:
+        print(f"Error computing SIMILAR_SKILL: {e}")
+
+    print("All GDS similarities computed.")
 
 # --- Asynchronous Neo4j CRUD functions ---
 # Note: These are now called by API endpoints and use the async driver.
 
 async def create_user_node(user_id: str, fullName: str, email: str, 
                      first_name: str, last_name: str, 
-                     avatar_url: Optional[str] = None,
-                     biography: Optional[str] = None,
-                     phone: Optional[str] = None,
-                     registration_category: Optional[str] = None
+                     avatar_url: Optional[str] = None, # Corrected type hint to HttpUrl
+                     biography: Optional[str] = None, # Corrected type hint
+                     phone: Optional[str] = None, # Corrected type hint
+                     registration_category: Optional[str] = None # Corrected type hint
                     ):
     driver = await get_neo4j_async_driver()
     async with driver.session() as session:
@@ -282,7 +313,7 @@ async def create_or_update_user_company_neo4j(user_id: str, company_name: str, i
         await session.run(query, user_id=user_id, company_name=company_name, is_current=is_current)
         print(f"Neo4j: User {user_id} WORKS_AT {company_name} (isCurrent: {is_current})")
 
-async def update_user_location_neo4j(user_id: str, location: str, location_type: str = 'City'):
+async def update_user_location_neo4j(user_id: str, location_name: str, location_type: str = 'City'):
     driver = await get_neo4j_async_driver()
     async with driver.session() as session:
         await session.run(
@@ -295,19 +326,19 @@ async def update_user_location_neo4j(user_id: str, location: str, location_type:
 
         query = """
         MATCH (u:User {userID: $user_id})
-        MERGE (l:Location {name: $location, type: $location_type})
+        MERGE (l:Location {name: $location_name, type: $location_type})
         MERGE (u)-[r:LIVES_IN]->(l)
         ON CREATE SET r.assigned_at = datetime()
         ON MATCH SET r.updated_at = datetime()
         RETURN u, l, r
         """
-        await session.run(query, user_id=user_id, location=location, location_type=location_type)
-        print(f"Neo4j: User {user_id} LIVES_IN {location}")
+        await session.run(query, user_id=user_id, location_name=location_name, location_type=location_type)
+        print(f"Neo4j: User {user_id} LIVES_IN {location_name}")
 
 # NEW: Create/update Conference node in Neo4j (maps from conferences table)
 async def create_conference_node_neo4j(
     conference_id: str, name: str, description: Optional[str],
-    start_date: datetime, end_date: datetime, location: Optional[str],
+    start_date: datetime, end_date: datetime, location_name: Optional[str],
     organizer_id: Optional[str] = None,
     logo_url: Optional[str] = None, # Corrected type hint to HttpUrl
     website_url: Optional[str] = None # Corrected type hint to HttpUrl
@@ -321,7 +352,7 @@ async def create_conference_node_neo4j(
             c.description = $description,
             c.start_date = $start_date,
             c.end_date = $end_date,
-            c.location = $location,
+            c.location = $location_name,
             c.logo_url = $logo_url,
             c.website_url = $website_url
         ON MATCH SET
@@ -329,13 +360,13 @@ async def create_conference_node_neo4j(
             c.description = $description,
             c.start_date = $start_date,
             c.end_date = $end_date,
-            c.location = $location,
+            c.location = $location_name,
             c.logo_url = $logo_url,
             c.website_url = $website_url
         """
         params = {
             "conference_id": conference_id, "name": name, "description": description,
-            "start_date": start_date, "end_date": end_date, "location": location,
+            "start_date": start_date, "end_date": end_date, "location_name": location_name,
             "organizer_id": organizer_id, "logo_url": logo_url, "website_url": website_url
         }
         if organizer_id:
@@ -347,32 +378,32 @@ async def create_conference_node_neo4j(
 # NEW: Create/update Event (component) node in Neo4j and link to Conference
 async def create_event_node_neo4j( # Renamed from create_session_node_neo4j
     event_id: str, conference_id: str, title: str, event_type: str,
-    start_time: datetime, end_time: datetime, location: Optional[str] = None
+    start_time: datetime, end_time: datetime, location_name: Optional[str] = None
 ):
     driver = await get_neo4j_async_driver()
     async with driver.session() as session:
         query = """
         MATCH (conf:Conference {conferenceID: $conference_id})
-        MERGE (e:Event {eventID: $event_id}) // Changed s:Session to e:Event
+        MERGE (e:Event {eventID: $event_id}) # Changed s:Session to e:Event
         ON CREATE SET
             e.title = $title,
-            e.type = $event_type,
+            e.type = $event_type, # Use event_type
             e.start_time = $start_time,
             e.end_time = $end_time,
-            e.location = $location
+            e.location = $location_name
         ON MATCH SET
             e.title = $title,
             e.type = $event_type,
             e.start_time = $start_time,
             e.end_time = $end_time,
-            e.location = $location
-        MERGE (conf)-[:HAS_EVENT]->(e) // Changed HAS_SESSION to HAS_EVENT
+            e.location = $location_name
+        MERGE (conf)-[:HAS_EVENT]->(e) # Changed HAS_SESSION to HAS_EVENT
         RETURN e
         """
         await session.run(query, {
             "event_id": event_id, "conference_id": conference_id, "title": title,
             "event_type": event_type, "start_time": start_time, "end_time": end_time,
-            "location": location
+            "location_name": location_name
         })
         print(f"Neo4j: Created/Updated Event node {title} (ID: {event_id}) for Conference {conference_id}")
 

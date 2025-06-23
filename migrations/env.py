@@ -27,6 +27,8 @@ target_metadata = Base.metadata
 # Read database URL from env or fallback to ini
 def get_database_url():
     return os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+# migrations/env.py
+# ...
 
 
 def run_migrations_offline():

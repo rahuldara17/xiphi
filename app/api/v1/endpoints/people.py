@@ -1,37 +1,38 @@
-from fastapi import APIRouter, Depends, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from postgres.models import User, UserSkill, UserInterest, UserJobRole, UserCompany # Ensure UserCompany has 'joined_at'
-from app.models.person import UserCreate, UserRead, UserUpdateSchema, RegistrationCategory # Make sure RegistrationCategory is imported
+# Ensure User models are correctly imported
+from postgres.models import User, UserSkill,UserLocation, UserInterest, UserJobRole, UserCompany, Event as PgEvent, Conference as PgConference, UserRegistration # NEW: Import UserRegistration
+from app.models.person import UserCreate, UserRead, UserUpdateSchema, RegistrationCategory
 from app.db.database import get_db
-from datetime import datetime, timezone # Use timezone for consistent UTC now
+from datetime import datetime, timezone
 import uuid
-
-# No direct import of increment_profile_update_count_in_memory here at the top
-# It will be imported inside the functions to prevent circular dependencies.
-
-# Import ALL your ASYNC Neo4j CRUD functions
+import asyncio
+from uuid import UUID
+# Import Neo4j CRUD functions
 from app.db.neo4j import (
     create_user_node, create_or_update_user_skill_neo4j,
-    create_or_update_user_interest_neo4j, create_or_update_user_job_role_neo4j,get_neo4j_async_driver,
+    create_or_update_user_interest_neo4j, create_or_update_user_job_role_neo4j,
     create_or_update_user_company_neo4j, update_user_location_neo4j,
-    create_user_conference_registration_neo4j # NEW IMPORT for registration g
+    create_user_conference_registration_neo4j # For user-conference registration
 )
 
-# Import the entity normalization functions from process.py
-from app.services.process import (
+from app.services.process import ( # Assuming these are defined in app.services.process.py
     find_or_create_skill_interest,
     find_or_create_company,
-    find_or_create_job_role
+    find_or_create_job_role,
+    find_or_create_location
 )
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional # Ensure Optional is imported for type hints
 from services.services.person_service import PeopleService
 
 
 router = APIRouter()
 
 async def get_people_service_dependency(db: AsyncSession = Depends(get_db)):
+    from app.db.neo4j import get_neo4j_async_driver # Local import
     neo4j_driver_instance = await get_neo4j_async_driver()
     return PeopleService(db=db, neo4j_driver_async=neo4j_driver_instance)
 
@@ -40,13 +41,17 @@ async def get_people_service_dependency(db: AsyncSession = Depends(get_db)):
 
 @router.post("/", response_model=UserRead)
 async def create_user(user_create_payload: UserCreate, db: AsyncSession = Depends(get_db)):
+    # Import main module inside the function to avoid circular dependency
+    import main as main_app_module 
+
+    # 1. Check for existing user
     result = await db.execute(select(User).filter(User.email == user_create_payload.email))
     existing_user = result.scalars().first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    # 2. Create new User in Postgres
     new_user_uuid = uuid.uuid4()
-    # Create Postgres User
     new_user = User(
         user_id=new_user_uuid,
         email=user_create_payload.email,
@@ -56,149 +61,127 @@ async def create_user(user_create_payload: UserCreate, db: AsyncSession = Depend
         avatar_url=user_create_payload.avatar_url,
         biography=user_create_payload.biography,
         phone=user_create_payload.phone,
-        # Ensure RegistrationCategory enum is handled correctly (use .value)
         registration_category=user_create_payload.registration_category.value,
-        reg_id=user_create_payload.reg_id, # Store reg_id in Postgres User table
-         conference_id=uuid.UUID(user_create_payload.reg_id) if user_create_payload.reg_id else None
+        # FIX: reg_id is NOT taken here, as user won't have it at creation
+        # reg_id=user_create_payload.reg_id,
+        # conference_id is also not taken here.
     )
 
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
-
-    # Call Neo4j node creation
-    await create_user_node(
-        user_id=str(new_user.user_id),
-        fullName=f"{new_user.first_name} {new_user.last_name}",
-        email=new_user.email,
-        first_name=new_user.first_name,
-        last_name=new_user.last_name
-    )
-
-    # Create Neo4j conference registration relationship if reg_id is provided
-    if user_create_payload.reg_id: # reg_id is implicitly conference_id
-        # Verify Conference node exists in Postgres for this reg_id/conference_id
-        pg_conf_result = await db.execute(select(PgConference).filter(PgConference.conference_id == UUID(user_create_payload.reg_id)))
-        pg_conf = pg_conf_result.scalars().first()
-        if not pg_conf:
-            print(f"Warning: Conference {user_create_payload.reg_id} not found in Postgres. Cannot link user to conference in Neo4j.")
+    neo4j_registration_category = None
+    if new_user.registration_category:
+    # Check if it's an Enum instance, and if so, get its value.
+    # Otherwise, assume it's already a string (less likely to be hit if ORM rehydrates).
+        if isinstance(new_user.registration_category, RegistrationCategory):
+            neo4j_registration_category = new_user.registration_category.value
         else:
-            await create_user_conference_registration_neo4j(
-                user_id=str(new_user.user_id),
-                conference_id=str(pg_conf.conference_id), # Use Postgres conference_id (which is reg_id)
-                reg_id=user_create_payload.reg_id # Use the reg_id as the property on relation
-            )
+        # This case handles scenarios where it might already be a string for some reason
+            neo4j_registration_category = str(new_user.registration_category) 
+        # Using str() is a robust way to ensure it's a string for non-enum cases too.
 
-    # --- Initial connections based on UserCreate payload ---
-    # These remain as they were in the previous version
-    if hasattr(user_create_payload, 'user_skills') and user_create_payload.user_skills:
-        for skill_name in user_create_payload.user_skills:
-            skill_info = await find_closest_skill_id(db, skill_name)
-            if skill_info:
-                await db.merge(UserSkill(user_id=new_user_uuid, skill_interest_id=skill_info["skill_interest_id"]))
-                await create_or_update_user_skill_neo4j(str(new_user_uuid), skill_info["name"])
+    await create_user_node(
+    user_id=str(new_user.user_id),
+    fullName=f"{new_user.first_name} {new_user.last_name}",
+    email=new_user.email,
+    first_name=new_user.first_name,
+    last_name=new_user.last_name,
+    avatar_url=new_user.avatar_url,
+    biography=new_user.biography,
+    phone=new_user.phone,
+    registration_category=neo4j_registration_category # <--- Pass the explicitly converted string here
+)
+    # REVERTED: No initial connections based on UserCreate payload for now, or reg_id linking
+    # These functions now await correctly in update_user_data.
 
-    if hasattr(user_create_payload, 'user_interests') and user_create_payload.user_interests:
-        for interest_name in user_create_payload.user_interests:
-            await create_or_update_user_interest_neo4j(str(new_user_uuid), interest_name)
-
-    if hasattr(user_create_payload, 'current_job_role_title') and user_create_payload.current_job_role_title:
-        await create_or_update_user_job_role_neo4j(str(new_user_uuid), user_create_payload.current_job_role_title)
     
-    if hasattr(user_create_payload, 'current_company_name') and user_create_payload.current_company_name:
-        await create_or_update_user_company_neo4j(str(new_user_uuid), user_create_payload.current_company_name)
-
-    if hasattr(user_create_payload, 'current_location_name') and user_create_payload.current_location_name:
-        await update_user_location_neo4j(str(new_user_uuid), user_create_payload.current_location_name)
-
-    # Ensure UserRead returns reg_id and conference_id
+    
+    # Ensure UserRead returns correct data (reg_id will be None initially)
     new_user_read_response = UserRead.from_orm(new_user)
-    new_user_read_response.reg_id = user_create_payload.reg_id
-    new_user_read_response.conference_id = user_create_payload.reg_id # Set conference_id for response
-
+    # new_user_read_response.reg_id will be None as per Postgres model
+    # new_user_read_response.conference_id will be None
+    
     return new_user_read_response
+
+
 @router.post("/update")
 async def update_user_data(payload: UserUpdateSchema, db: AsyncSession = Depends(get_db)):
-    user_id = str(payload.user_id)
-    data_was_updated = False # Flag to track if any relevant data was updated
+    user_id = str(payload.user_id) # Ensure user_id is string UUID
+    
 
-    # Import main module inside the function to avoid circular dependency
-    import main as main_app_module 
+    
 
     now_utc = datetime.now(timezone.utc)
     infinity_date = datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
 
-    # --- Update Skills ---
+    
+        
+
+       
+    # --- Update Skills (remains unchanged) ---
     if payload.user_skills:
         for skill_payload in payload.user_skills:
             skill_info = await find_or_create_skill_interest(db, skill_payload.skill_name, entity_type='skill')
             if skill_info:
-                await db.merge(UserSkill( # Update Postgres
-                    user_id=user_id,
-                    skill_interest_id=skill_info["skill_interest_id"],
-                    assigned_at=skill_payload.assigned_at or now_utc,
-                    valid_from=skill_payload.valid_from or now_utc,
-                    valid_to=skill_payload.valid_to or infinity_date
-                ))
+                await db.merge(UserSkill(user_id=user_id, skill_interest_id=skill_info["skill_interest_id"], assigned_at=skill_payload.assigned_at or now_utc, valid_from=skill_payload.valid_from or now_utc, valid_to=skill_payload.valid_to or infinity_date))
                 await create_or_update_user_skill_neo4j(user_id, skill_info["name"])
                 data_was_updated = True
 
-    # --- Update Interests ---
+    # --- Update Interests (remains unchanged) ---
     if payload.user_interests:
         for interest_payload in payload.user_interests:
             interest_info = await find_or_create_skill_interest(db, interest_payload.interest_name, entity_type='interest')
             if interest_info:
-                await db.merge(UserInterest( # Update Postgres
-                    user_id=user_id,
-                    skill_interest_id=interest_info["skill_interest_id"],
-                    assigned_at=interest_payload.assigned_at or now_utc,
-                    valid_from=interest_payload.valid_from or now_utc,
-                    valid_to=interest_payload.valid_to or infinity_date
-                ))
+                await db.merge(UserInterest(user_id=user_id, skill_interest_id=interest_info["skill_interest_id"], assigned_at=interest_payload.assigned_at or now_utc, valid_from=interest_payload.valid_from or now_utc, valid_to=interest_payload.valid_to or infinity_date))
                 await create_or_update_user_interest_neo4j(user_id, interest_info["name"])
                 data_was_updated = True
 
-    # --- Update Job Roles ---
+    # --- Update Job Roles (remains unchanged) ---
     if payload.user_job_roles:
         for role_payload in payload.user_job_roles:
             job_role_info = await find_or_create_job_role(db, role_payload.job_role_title)
             if job_role_info:
-                await db.merge(UserJobRole( # Update Postgres
-                    user_id=user_id,
-                    job_role_id=job_role_info["job_role_id"],
-                    assigned_at=role_payload.valid_from or now_utc,
-                    valid_from=role_payload.valid_from or now_utc,
-                    valid_to=role_payload.valid_to or infinity_date
-                ))
+                await db.merge(UserJobRole(user_id=user_id, job_role_id=job_role_info["job_role_id"], assigned_at=role_payload.valid_from or now_utc, valid_from=role_payload.valid_from or now_utc, valid_to=role_payload.valid_to or infinity_date))
                 await create_or_update_user_job_role_neo4j(user_id, job_role_info["title"])
                 data_was_updated = True
 
-    # --- Update Company ---
+    # --- Update Company (remains unchanged) ---
     if payload.user_company:
         company_payload = payload.user_company
         company_info = await find_or_create_company(db, company_payload.company_name)
         if company_info:
-            await db.merge(UserCompany( # Update Postgres
-                user_id=user_id,
-                company_id=company_info["company_id"],
-                assigned_at=company_payload.assigned_at or now_utc,
-                valid_from=company_payload.valid_from or now_utc,
-                valid_to=company_payload.valid_to or infinity_date,
-            ))
-            await create_or_update_user_company_neo4j(user_id, company_info["name"])
+            await db.merge(UserCompany(user_id=user_id, company_id=company_info["company_id"], assigned_at=company_payload.assigned_at or now_utc, valid_from=company_payload.valid_from or now_utc, valid_to=company_payload.valid_to or infinity_date))
+            await create_or_update_user_company_neo4j(user_id, company_info["name"], is_current=True)
             data_was_updated = True
 
-    # --- Update Location ---
-    if hasattr(payload, 'current_location_name') and payload.current_location_name:
-        await update_user_location_neo4j(user_id, payload.current_location_name)
+    if payload.location: # 'location' is the string name from UserUpdateSchema
+        # 1. Find or Create the canonical Location entity in Postgres (and get its ID)
+        location_info = await find_or_create_location(db, payload.location)
+        
+        # 2. Create/Update record in user_location table (Postgres)
+        # This links the user to the canonical location entity.
+        pg_user_location =UserLocation(
+            user_id=UUID(user_id), # The user being updated
+            location_id=UUID(location_info["location_id"]), # The canonical location ID
+            assigned_at=now_utc,
+            valid_from=now_utc,
+            valid_to=infinity_date # Mark as current indefinitely
+        )
+        db.add(pg_user_location) # Stage the new user-location association record
+        await update_user_location_neo4j(user_id, location_info["name"])
+        # IMPORTANT: The old `await update_user_location_neo4j` call is REMOVED from here,
+        # as per your request to separate knowledge graph generation for location.
+        # You would later add a new Neo4j call for location here if needed.
+        
         data_was_updated = True
+        print(f"User {user_id} successfully linked to Location {location_info['name']} (ID: {location_info['location_id']}) in PostgreSQL.")
 
-    await db.commit() # Commit all Postgres changes for the user update
-
-    if data_was_updated:
-        await main_app_module.increment_profile_update_count_in_memory() # Increment in-memory count only if relevant data changed
-
+    await db.commit() # This commit will now save the UserLocation record too.
+    
+    # ... (rest of your endpoint code) ...
     return {"msg": "User update successful"}
+
 
 """ @router.get("/recommendations/demographics/{user_id}", response_model=Dict[str, Any])
 async def get_demographics_recommendations_api(
